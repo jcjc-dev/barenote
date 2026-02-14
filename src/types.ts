@@ -1,4 +1,3 @@
-// Shared TypeScript types for RawNote
 export interface Tab {
   id: string;
   title: string;
@@ -14,15 +13,15 @@ export interface Delta {
 }
 
 export interface EditorConfig {
-  fontSize: number;
-  tabSize: number;
-  wordWrap: boolean;
-  lineNumbers: boolean;
+  font_size: number;
+  tab_size: number;
+  word_wrap: boolean;
+  line_numbers: boolean;
 }
 
 export interface AppConfig {
   keybindings: Record<string, string>;
   editor: EditorConfig;
-  snapshotIntervalEdits: number;
-  snapshotIntervalMs: number;
+  snapshot_interval_edits: number;
+  snapshot_interval_ms: number;
 }

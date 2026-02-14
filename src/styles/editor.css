@@ -1,0 +1,6 @@
+.editor-container .cm-editor {
+  height: 100%;
+}
+.editor-container .cm-scroller {
+  overflow: auto;
+}

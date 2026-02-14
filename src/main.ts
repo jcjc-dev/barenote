@@ -1,1 +1,4 @@
-console.log("RawNote starting");
+import { App } from "./app";
+
+const app = new App();
+app.init().catch(console.error);
