@@ -9,7 +9,8 @@ export class TabBar {
   private tabs: Tab[] = [];
   private activeTabId: string | null = null;
   private callback: TabCallback;
-  private draggedTab: string | null = null;
+  private dragState: { tabId: string; startX: number; el: HTMLElement | null } | null = null;
+  private dropIndicator: HTMLElement | null = null;
 
   constructor(container: HTMLElement, callback: TabCallback) {
     this.container = container;
@@ -38,7 +39,6 @@ export class TabBar {
     return [...this.tabs];
   }
 
-  /** Trigger rename on the currently active tab */
   renameActiveTab(): void {
     if (!this.activeTabId) return;
     const titleEl = this.container.querySelector(`.tab-item.active .tab-title`) as HTMLElement | null;
@@ -48,7 +48,6 @@ export class TabBar {
     }
   }
 
-  /** Move the active tab by offset (-1 = left, +1 = right) */
   moveActiveTab(offset: number): void {
     if (!this.activeTabId) return;
     const idx = this.tabs.findIndex(t => t.id === this.activeTabId);
@@ -61,7 +60,6 @@ export class TabBar {
     this.callback("reorder");
   }
 
-  /** Switch to the next/previous tab */
   switchTab(offset: number): void {
     if (this.tabs.length === 0) return;
     const idx = this.tabs.findIndex(t => t.id === this.activeTabId);
@@ -83,12 +81,10 @@ export class TabBar {
     for (const tab of this.tabs) {
       const tabEl = document.createElement("div");
       tabEl.className = `tab-item${tab.id === this.activeTabId ? " active" : ""}`;
-      tabEl.draggable = true;
       tabEl.dataset.tabId = tab.id;
 
       const title = document.createElement("span");
       title.className = "tab-title";
-      // Unsaved tabs (no file_path) show with "~ " prefix and unsaved style
       const isSettingsTab = tab.id === "__settings__";
       if (!tab.file_path && !isSettingsTab) {
         title.classList.add("unsaved");
@@ -97,6 +93,7 @@ export class TabBar {
         title.textContent = tab.title;
       }
       title.addEventListener("dblclick", (e) => {
+        e.preventDefault();
         e.stopPropagation();
         this.startRename(tab, title);
       });
@@ -112,41 +109,118 @@ export class TabBar {
       tabEl.appendChild(title);
       tabEl.appendChild(closeBtn);
 
-      tabEl.addEventListener("click", () => {
-        this.activeTabId = tab.id;
-        this.render();
-        this.callback("select", tab);
+      // Single click to select (with delay to not conflict with dblclick)
+      tabEl.addEventListener("mousedown", (e) => {
+        if ((e.target as HTMLElement).classList.contains("tab-close")) return;
+        if ((e.target as HTMLElement).tagName === "INPUT") return;
+        // Start potential drag
+        this.dragState = { tabId: tab.id, startX: e.clientX, el: null };
       });
 
-      tabEl.addEventListener("dragstart", (e) => {
-        this.draggedTab = tab.id;
-        tabEl.classList.add("dragging");
-        if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
-      });
-      tabEl.addEventListener("dragend", () => {
-        tabEl.classList.remove("dragging");
-        this.draggedTab = null;
-      });
-      tabEl.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-      });
-      tabEl.addEventListener("drop", (e) => {
-        e.preventDefault();
-        if (this.draggedTab && this.draggedTab !== tab.id) {
-          const fromIdx = this.tabs.findIndex((t) => t.id === this.draggedTab);
-          const toIdx = this.tabs.findIndex((t) => t.id === tab.id);
-          if (fromIdx >= 0 && toIdx >= 0) {
-            const [moved] = this.tabs.splice(fromIdx, 1);
-            this.tabs.splice(toIdx, 0, moved);
-            this.render();
-            this.callback("reorder");
-          }
+      tabEl.addEventListener("click", (e) => {
+        if ((e.target as HTMLElement).classList.contains("tab-close")) return;
+        if ((e.target as HTMLElement).tagName === "INPUT") return;
+        if (this.activeTabId !== tab.id) {
+          this.activeTabId = tab.id;
+          this.render();
+          this.callback("select", tab);
         }
       });
 
       tabList.appendChild(tabEl);
     }
+
+    // Global mouse handlers for drag
+    const onMouseMove = (e: MouseEvent) => {
+      if (!this.dragState) return;
+
+      const dx = Math.abs(e.clientX - this.dragState.startX);
+      if (dx < 5 && !this.dragState.el) return; // threshold before starting drag
+
+      // Start visual drag
+      if (!this.dragState.el) {
+        const srcEl = tabList.querySelector(`[data-tab-id="${this.dragState.tabId}"]`) as HTMLElement;
+        if (srcEl) {
+          srcEl.classList.add("dragging");
+          this.dragState.el = srcEl;
+        }
+      }
+
+      // Find drop target
+      const tabItems = Array.from(tabList.querySelectorAll(".tab-item")) as HTMLElement[];
+      this.removeDropIndicator();
+
+      for (const item of tabItems) {
+        if (item.dataset.tabId === this.dragState.tabId) continue;
+        const rect = item.getBoundingClientRect();
+        const midX = rect.left + rect.width / 2;
+
+        if (e.clientX >= rect.left && e.clientX <= rect.right) {
+          if (e.clientX < midX) {
+            this.showDropIndicator(item, "before");
+          } else {
+            this.showDropIndicator(item, "after");
+          }
+          break;
+        }
+      }
+    };
+
+    const onMouseUp = (e: MouseEvent) => {
+      if (!this.dragState) return;
+
+      const wasDragging = this.dragState.el !== null;
+
+      if (wasDragging) {
+        // Find where to drop
+        const tabItems = Array.from(tabList.querySelectorAll(".tab-item")) as HTMLElement[];
+        let targetIdx = -1;
+
+        for (let i = 0; i < tabItems.length; i++) {
+          const item = tabItems[i];
+          if (item.dataset.tabId === this.dragState.tabId) continue;
+          const rect = item.getBoundingClientRect();
+          const midX = rect.left + rect.width / 2;
+
+          if (e.clientX >= rect.left && e.clientX <= rect.right) {
+            const itemTabIdx = this.tabs.findIndex(t => t.id === item.dataset.tabId);
+            if (e.clientX < midX) {
+              targetIdx = itemTabIdx;
+            } else {
+              targetIdx = itemTabIdx + 1;
+            }
+            break;
+          }
+        }
+
+        if (targetIdx >= 0) {
+          const fromIdx = this.tabs.findIndex(t => t.id === this.dragState!.tabId);
+          if (fromIdx >= 0 && fromIdx !== targetIdx) {
+            const [moved] = this.tabs.splice(fromIdx, 1);
+            // Adjust target index after removal
+            const adjustedIdx = targetIdx > fromIdx ? targetIdx - 1 : targetIdx;
+            this.tabs.splice(adjustedIdx, 0, moved);
+            this.callback("reorder");
+          }
+        }
+
+        this.removeDropIndicator();
+        this.render();
+      }
+
+      this.dragState = null;
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp, { once: true });
+
+    // Clean up listeners when re-rendering (store reference for cleanup)
+    const oldCleanup = (this.container as any)._dragCleanup;
+    if (oldCleanup) oldCleanup();
+    (this.container as any)._dragCleanup = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
 
     const newBtn = document.createElement("button");
     newBtn.className = "tab-new";
@@ -165,13 +239,34 @@ export class TabBar {
     this.container.appendChild(archiveBtn);
   }
 
+  private showDropIndicator(target: HTMLElement, position: "before" | "after"): void {
+    this.removeDropIndicator();
+    this.dropIndicator = document.createElement("div");
+    this.dropIndicator.className = "tab-drop-indicator";
+    if (position === "before") {
+      target.parentElement?.insertBefore(this.dropIndicator, target);
+    } else {
+      target.parentElement?.insertBefore(this.dropIndicator, target.nextSibling);
+    }
+  }
+
+  private removeDropIndicator(): void {
+    if (this.dropIndicator) {
+      this.dropIndicator.remove();
+      this.dropIndicator = null;
+    }
+  }
+
   private startRename(tab: Tab, titleEl: HTMLElement): void {
     const input = document.createElement("input");
     input.type = "text";
     input.className = "tab-rename-input";
     input.value = tab.title;
+    let finished = false;
 
     const finish = async (): Promise<void> => {
+      if (finished) return;
+      finished = true;
       const newTitle = input.value.trim() || tab.title;
       tab.title = newTitle;
       try { await ipc.renameTab(tab.id, newTitle); } catch (e) { console.error(e); }
@@ -180,6 +275,7 @@ export class TabBar {
 
     input.addEventListener("blur", () => { finish(); });
     input.addEventListener("keydown", (e) => {
+      e.stopPropagation(); // prevent keybinding manager from catching these
       if (e.key === "Enter") input.blur();
       if (e.key === "Escape") { input.value = tab.title; input.blur(); }
     });
