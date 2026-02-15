@@ -240,11 +240,13 @@ export class App {
       await ipc.closeTab(id);
       const tabs = await ipc.listTabs();
       this.tabBar?.setTabs(tabs);
-      // Refresh archive panel if it's open
       this.archive?.refresh();
       if (tabs.length > 0) {
-        this.currentTabId = this.tabBar?.getActiveTabId() || tabs[0].id;
-        await this.loadTabContent(this.currentTabId);
+        const newActiveId = this.tabBar?.getActiveTabId() || tabs[0].id;
+        this.currentTabId = newActiveId;
+        this.tabBar?.setActiveTab(newActiveId);
+        await this.loadTabContent(newActiveId);
+        this.editor?.focus();
       } else {
         await this.createNewTab();
       }

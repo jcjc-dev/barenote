@@ -21,8 +21,11 @@ export class TabBar {
 
   setTabs(tabs: Tab[], activeId?: string): void {
     this.tabs = tabs;
-    if (activeId) this.activeTabId = activeId;
-    else if (tabs.length > 0 && !this.activeTabId) this.activeTabId = tabs[0].id;
+    if (activeId) {
+      this.activeTabId = activeId;
+    } else if (!this.activeTabId || !tabs.find(t => t.id === this.activeTabId)) {
+      this.activeTabId = tabs.length > 0 ? tabs[0].id : null;
+    }
     this.render();
   }
 
