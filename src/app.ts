@@ -237,15 +237,25 @@ export class App {
   private async archiveTab(id: string): Promise<void> {
     try {
       if (id === this.currentTabId && this.editCount > 0) this.saveSnapshot();
+      // Find adjacent tab before closing (prefer left neighbor, fallback to right)
+      const oldTabs = this.tabBar?.getTabs() || [];
+      const closedIdx = oldTabs.findIndex(t => t.id === id);
+      let nextTabId: string | null = null;
+      if (closedIdx > 0) {
+        nextTabId = oldTabs[closedIdx - 1].id;
+      } else if (closedIdx === 0 && oldTabs.length > 1) {
+        nextTabId = oldTabs[1].id;
+      }
+
       await ipc.closeTab(id);
       const tabs = await ipc.listTabs();
-      this.tabBar?.setTabs(tabs);
+      // Use the pre-computed adjacent tab, or fall back to first
+      const activeId = nextTabId && tabs.find(t => t.id === nextTabId) ? nextTabId : (tabs[0]?.id ?? null);
+      this.tabBar?.setTabs(tabs, activeId ?? undefined);
       this.archive?.refresh();
-      if (tabs.length > 0) {
-        const newActiveId = this.tabBar?.getActiveTabId() || tabs[0].id;
-        this.currentTabId = newActiveId;
-        this.tabBar?.setActiveTab(newActiveId);
-        await this.loadTabContent(newActiveId);
+      if (activeId) {
+        this.currentTabId = activeId;
+        await this.loadTabContent(activeId);
         this.editor?.focus();
       } else {
         await this.createNewTab();
