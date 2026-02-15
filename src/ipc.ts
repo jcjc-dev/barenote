@@ -56,3 +56,7 @@ export async function setWindowTheme(theme: string): Promise<void> {
 export async function saveTabToPath(id: string, path: string): Promise<void> {
   return invoke("save_tab_to_path", { id, path });
 }
+
+export async function reorderTabs(order: string[]): Promise<void> {
+  return invoke("reorder_tabs", { order });
+}

@@ -133,3 +133,9 @@ pub fn set_window_theme(theme: String, window: tauri::WebviewWindow) -> Result<(
     };
     window.set_theme(tauri_theme).map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn reorder_tabs(order: Vec<String>, state: State<AppState>) -> Result<(), String> {
+    let mut mgr = state.tab_manager.lock().map_err(|e| e.to_string())?;
+    mgr.reorder_tabs(order).map_err(|e| e.to_string())
+}

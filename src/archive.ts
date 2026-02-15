@@ -16,7 +16,7 @@ export class ArchivePanel {
   async toggle(): Promise<void> {
     this.visible = !this.visible;
     if (this.visible) {
-      await this.refresh();
+      await this.fetchAndRender();
       this.container.style.display = "flex";
     } else {
       this.container.style.display = "none";
@@ -24,6 +24,11 @@ export class ArchivePanel {
   }
 
   async refresh(): Promise<void> {
+    if (!this.visible) return;
+    await this.fetchAndRender();
+  }
+
+  private async fetchAndRender(): Promise<void> {
     try {
       const tabs = await ipc.listArchivedTabs();
       this.render(tabs);

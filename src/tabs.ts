@@ -1,7 +1,7 @@
 import type { Tab } from "./types";
 import * as ipc from "./ipc";
 
-export type TabAction = "select" | "close" | "create" | "archive";
+export type TabAction = "select" | "close" | "create" | "archive" | "reorder" | "rename";
 export type TabCallback = (action: TabAction, tab?: Tab) => void;
 
 export class TabBar {
@@ -32,6 +32,46 @@ export class TabBar {
   setActiveTab(id: string): void {
     this.activeTabId = id;
     this.render();
+  }
+
+  getTabs(): Tab[] {
+    return [...this.tabs];
+  }
+
+  /** Trigger rename on the currently active tab */
+  renameActiveTab(): void {
+    if (!this.activeTabId) return;
+    const titleEl = this.container.querySelector(`.tab-item.active .tab-title`) as HTMLElement | null;
+    const tab = this.tabs.find(t => t.id === this.activeTabId);
+    if (titleEl && tab) {
+      this.startRename(tab, titleEl);
+    }
+  }
+
+  /** Move the active tab by offset (-1 = left, +1 = right) */
+  moveActiveTab(offset: number): void {
+    if (!this.activeTabId) return;
+    const idx = this.tabs.findIndex(t => t.id === this.activeTabId);
+    if (idx < 0) return;
+    const newIdx = idx + offset;
+    if (newIdx < 0 || newIdx >= this.tabs.length) return;
+    const [moved] = this.tabs.splice(idx, 1);
+    this.tabs.splice(newIdx, 0, moved);
+    this.render();
+    this.callback("reorder");
+  }
+
+  /** Switch to the next/previous tab */
+  switchTab(offset: number): void {
+    if (this.tabs.length === 0) return;
+    const idx = this.tabs.findIndex(t => t.id === this.activeTabId);
+    let newIdx = idx + offset;
+    if (newIdx < 0) newIdx = this.tabs.length - 1;
+    if (newIdx >= this.tabs.length) newIdx = 0;
+    const tab = this.tabs[newIdx];
+    this.activeTabId = tab.id;
+    this.render();
+    this.callback("select", tab);
   }
 
   private render(): void {
@@ -100,6 +140,7 @@ export class TabBar {
             const [moved] = this.tabs.splice(fromIdx, 1);
             this.tabs.splice(toIdx, 0, moved);
             this.render();
+            this.callback("reorder");
           }
         }
       });

@@ -94,6 +94,11 @@ export class App {
     this.keybindings.register("toggleArchive", () => { this.archive?.toggle(); });
     this.keybindings.register("saveAs", () => { this.saveAs(); });
     this.keybindings.register("settings", () => { this.openSettings(); });
+    this.keybindings.register("renameTab", () => { this.tabBar?.renameActiveTab(); });
+    this.keybindings.register("nextTab", () => { this.tabBar?.switchTab(1); });
+    this.keybindings.register("prevTab", () => { this.tabBar?.switchTab(-1); });
+    this.keybindings.register("moveTabLeft", () => { this.tabBar?.moveActiveTab(-1); });
+    this.keybindings.register("moveTabRight", () => { this.tabBar?.moveActiveTab(1); });
   }
 
   private async loadTabs(): Promise<void> {
@@ -205,6 +210,12 @@ export class App {
       case "archive":
         this.archive?.toggle();
         break;
+      case "reorder":
+        this.persistTabOrder();
+        break;
+      case "rename":
+        this.tabBar?.renameActiveTab();
+        break;
     }
   }
 
@@ -229,6 +240,8 @@ export class App {
       await ipc.closeTab(id);
       const tabs = await ipc.listTabs();
       this.tabBar?.setTabs(tabs);
+      // Refresh archive panel if it's open
+      this.archive?.refresh();
       if (tabs.length > 0) {
         this.currentTabId = this.tabBar?.getActiveTabId() || tabs[0].id;
         await this.loadTabContent(this.currentTabId);
@@ -242,6 +255,16 @@ export class App {
 
   private async closeCurrentTab(): Promise<void> {
     if (this.currentTabId) await this.archiveTab(this.currentTabId);
+  }
+
+  private async persistTabOrder(): Promise<void> {
+    const tabs = this.tabBar?.getTabs() || [];
+    const order = tabs.map(t => t.id).filter(id => id !== "__settings__");
+    try {
+      await ipc.reorderTabs(order);
+    } catch (e) {
+      console.error("Failed to persist tab order:", e);
+    }
   }
 
   private async handleTabRestored(tab: Tab): Promise<void> {

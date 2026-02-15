@@ -18,8 +18,13 @@ function matchesShortcut(e: KeyboardEvent, shortcut: string): boolean {
   const needShift = parts.includes("shift");
   const needAlt = parts.includes("alt");
 
+  const eventKey = e.key.toLowerCase();
+  const bracketMap: Record<string, string> = { "[": "bracketleft", "]": "bracketright" };
+  const keyMatches = eventKey === key
+    || (key in bracketMap && e.code.toLowerCase() === bracketMap[key]);
+
   return (
-    e.key.toLowerCase() === key &&
+    keyMatches &&
     e.ctrlKey === needCtrl &&
     e.metaKey === needMeta &&
     e.shiftKey === needShift &&

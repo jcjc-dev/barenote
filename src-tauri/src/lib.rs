@@ -26,6 +26,7 @@ pub fn run() {
             commands::save_config,
             commands::set_window_theme,
             commands::save_tab_to_path,
+            commands::reorder_tabs,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
