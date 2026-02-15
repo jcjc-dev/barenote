@@ -53,6 +53,20 @@
   transition: background 0.1s;
 }
 .archive-restore-btn:hover { background: var(--accent); color: #fff; }
+.archive-item-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.archive-delete-btn {
+  padding: 4px 12px;
+  background: var(--bg-input);
+  border-radius: 3px;
+  font-size: 12px;
+  transition: background 0.1s;
+  color: var(--text-secondary);
+}
+.archive-delete-btn:hover { background: #d14; color: #fff; }
 
 .preview-panel {
   flex: 1;

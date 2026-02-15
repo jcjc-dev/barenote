@@ -40,7 +40,12 @@ pub fn rename_tab(id: String, title: String, state: State<AppState>) -> Result<(
 #[tauri::command]
 pub fn close_tab(id: String, state: State<AppState>) -> Result<(), String> {
     let mut mgr = state.tab_manager.lock().map_err(|e| e.to_string())?;
-    mgr.archive_tab(&id).map_err(|e| e.to_string())
+    // If tab is empty, delete permanently instead of archiving
+    if mgr.is_tab_empty(&id) {
+        mgr.delete_tab(&id).map_err(|e| e.to_string())
+    } else {
+        mgr.archive_tab(&id).map_err(|e| e.to_string())
+    }
 }
 
 #[tauri::command]
@@ -138,4 +143,10 @@ pub fn set_window_theme(theme: String, window: tauri::WebviewWindow) -> Result<(
 pub fn reorder_tabs(order: Vec<String>, state: State<AppState>) -> Result<(), String> {
     let mut mgr = state.tab_manager.lock().map_err(|e| e.to_string())?;
     mgr.reorder_tabs(order).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_tab(id: String, state: State<AppState>) -> Result<(), String> {
+    let mut mgr = state.tab_manager.lock().map_err(|e| e.to_string())?;
+    mgr.delete_tab(&id).map_err(|e| e.to_string())
 }

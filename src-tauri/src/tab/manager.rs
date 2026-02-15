@@ -132,6 +132,44 @@ impl TabManager {
             .collect()
     }
 
+    /// Permanently delete a tab (remove from memory and disk)
+    pub fn delete_tab(&mut self, id: &str) -> std::io::Result<()> {
+        self.tabs.remove(id);
+        self.tab_order.retain(|t| t != id);
+        if self.selected_tab.as_deref() == Some(id) {
+            self.selected_tab = self.tab_order.first().cloned();
+        }
+        let tab_dir = self.app_dir.join("tabs").join(id);
+        if tab_dir.exists() {
+            fs::remove_dir_all(&tab_dir)?;
+        }
+        self.save_session()?;
+        Ok(())
+    }
+
+    /// Check if a tab's content is empty
+    pub fn is_tab_empty(&self, id: &str) -> bool {
+        let tab_dir = self.app_dir.join("tabs").join(id);
+        let content_path = tab_dir.join("content.txt");
+        let wal_path = tab_dir.join("wal.log");
+        // Empty if no content file, or content file is empty and no WAL
+        let content_empty = if content_path.exists() {
+            fs::read_to_string(&content_path)
+                .map(|s| s.trim().is_empty())
+                .unwrap_or(true)
+        } else {
+            true
+        };
+        let wal_empty = if wal_path.exists() {
+            fs::read_to_string(&wal_path)
+                .map(|s| s.trim().is_empty())
+                .unwrap_or(true)
+        } else {
+            true
+        };
+        content_empty && wal_empty
+    }
+
     /// Save session state (tab order + selected tab)
     pub fn save_session(&self) -> std::io::Result<()> {
         let session = SessionState {

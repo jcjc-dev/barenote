@@ -99,8 +99,25 @@ export class ArchivePanel {
         }
       });
 
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "archive-delete-btn";
+      deleteBtn.textContent = "Delete";
+      deleteBtn.addEventListener("click", async () => {
+        try {
+          await ipc.deleteTab(tab.id);
+          await this.fetchAndRender();
+        } catch (e) {
+          console.error("Failed to delete tab:", e);
+        }
+      });
+
+      const actions = document.createElement("div");
+      actions.className = "archive-item-actions";
+      actions.appendChild(restoreBtn);
+      actions.appendChild(deleteBtn);
+
       item.appendChild(info);
-      item.appendChild(restoreBtn);
+      item.appendChild(actions);
       list.appendChild(item);
     }
 

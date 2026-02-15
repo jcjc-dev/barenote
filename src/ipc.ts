@@ -60,3 +60,7 @@ export async function saveTabToPath(id: string, path: string): Promise<void> {
 export async function reorderTabs(order: string[]): Promise<void> {
   return invoke("reorder_tabs", { order });
 }
+
+export async function deleteTab(id: string): Promise<void> {
+  return invoke("delete_tab", { id });
+}
