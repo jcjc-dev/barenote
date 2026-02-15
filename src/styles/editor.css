@@ -5,3 +5,11 @@
   overflow: auto;
 }
 
+/* Mode-based editor visibility */
+.editor-container.mode-wysiwyg > .cm-editor {
+  display: none !important;
+}
+.editor-container:not(.mode-wysiwyg) > .milkdown-container {
+  display: none !important;
+}
+

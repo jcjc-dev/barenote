@@ -109,6 +109,15 @@ export class RawNoteEditor {
     this.view.destroy();
   }
 
+  show(): void {
+    this.view.dom.style.display = '';
+    this.view.dom.parentElement?.classList.remove('mode-wysiwyg');
+  }
+
+  hide(): void {
+    this.view.dom.style.display = 'none';
+  }
+
   getView(): EditorView {
     return this.view;
   }

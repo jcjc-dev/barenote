@@ -18,6 +18,7 @@ export interface EditorConfig {
   tab_size: number;
   word_wrap: boolean;
   line_numbers: boolean;
+  default_editor_mode?: 'raw' | 'wysiwyg';
 }
 
 export interface AppConfig {
