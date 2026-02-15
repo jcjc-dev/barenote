@@ -59,6 +59,13 @@ export class SettingsView {
             <span class="toggle-slider"></span>
           </label>
         </div>
+        <div class="settings-row">
+          <label for="setting-default-editor-mode">Default Editor Mode</label>
+          <select id="setting-default-editor-mode">
+            <option value="raw"${(this.config.editor.default_editor_mode ?? 'raw') === 'raw' ? " selected" : ""}>Raw</option>
+            <option value="wysiwyg"${this.config.editor.default_editor_mode === 'wysiwyg' ? " selected" : ""}>WYSIWYG</option>
+          </select>
+        </div>
       </section>
 
       <section class="settings-section">
@@ -95,6 +102,7 @@ export class SettingsView {
     this.bindInput("setting-tab-size", "change", (val) => { this.config.editor.tab_size = parseInt(val); });
     this.bindCheckbox("setting-word-wrap", (val) => { this.config.editor.word_wrap = val; });
     this.bindCheckbox("setting-line-numbers", (val) => { this.config.editor.line_numbers = val; });
+    this.bindInput("setting-default-editor-mode", "change", (val) => { this.config.editor.default_editor_mode = val as 'raw' | 'wysiwyg'; });
     this.bindInput("setting-snapshot-edits", "change", (val) => { this.config.snapshot_interval_edits = parseInt(val); });
     this.bindInput("setting-snapshot-ms", "change", (val) => { this.config.snapshot_interval_ms = parseInt(val); });
 

@@ -149,6 +149,7 @@ export class App {
         this.editor?.hide();
         if (!this.milkdownEditor) {
           const editorContainer = document.getElementById("editor-container")!;
+          editorContainer.classList.add('mode-wysiwyg');
           this.milkdownEditor = new MilkdownEditor(editorContainer, content, () => {
             this.handleMilkdownChange();
           });
@@ -286,13 +287,14 @@ export class App {
         this.editor?.hide();
         if (!this.milkdownEditor) {
           const editorContainer = document.getElementById("editor-container")!;
+          editorContainer.classList.add('mode-wysiwyg');
           this.milkdownEditor = new MilkdownEditor(editorContainer, "", () => {
             this.handleMilkdownChange();
           });
           await this.milkdownEditor.waitForReady();
         } else {
-          await this.milkdownEditor.setContent("");
           this.milkdownEditor.show();
+          await this.milkdownEditor.setContent("");
         }
         this.updateModeIndicator('wysiwyg');
         await this.milkdownEditor?.focus();
@@ -407,6 +409,7 @@ export class App {
 
       if (!this.milkdownEditor) {
         const editorContainer = document.getElementById("editor-container")!;
+        editorContainer.classList.add('mode-wysiwyg');
         console.log("[App] Creating new MilkdownEditor");
         this.milkdownEditor = new MilkdownEditor(editorContainer, content, () => {
           this.handleMilkdownChange();
