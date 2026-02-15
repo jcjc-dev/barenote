@@ -31,6 +31,8 @@
   max-width: 200px;
   gap: 8px;
   transition: background 0.1s;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .tab-item:hover { background: var(--bg-hover); }
 .tab-item.active {

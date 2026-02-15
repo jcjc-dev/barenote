@@ -143,6 +143,9 @@ export class TabBar {
         if (srcEl) {
           srcEl.classList.add("dragging");
           this.dragState.el = srcEl;
+          document.body.style.userSelect = "none";
+          document.body.style.webkitUserSelect = "none";
+          document.body.style.cursor = "grabbing";
         }
       }
 
@@ -205,6 +208,9 @@ export class TabBar {
         }
 
         this.removeDropIndicator();
+        document.body.style.userSelect = "";
+        document.body.style.webkitUserSelect = "";
+        document.body.style.cursor = "";
         this.render();
       }
 
