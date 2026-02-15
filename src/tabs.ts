@@ -1,7 +1,7 @@
 import type { Tab } from "./types";
 import * as ipc from "./ipc";
 
-export type TabAction = "select" | "close" | "create";
+export type TabAction = "select" | "close" | "create" | "archive";
 export type TabCallback = (action: TabAction, tab?: Tab) => void;
 
 export class TabBar {
@@ -48,7 +48,14 @@ export class TabBar {
 
       const title = document.createElement("span");
       title.className = "tab-title";
-      title.textContent = tab.title;
+      // Unsaved tabs (no file_path) show with "~ " prefix and unsaved style
+      const isSettingsTab = tab.id === "__settings__";
+      if (!tab.file_path && !isSettingsTab) {
+        title.classList.add("unsaved");
+        title.textContent = "~ " + tab.title;
+      } else {
+        title.textContent = tab.title;
+      }
       title.addEventListener("dblclick", (e) => {
         e.stopPropagation();
         this.startRename(tab, title);
@@ -106,8 +113,15 @@ export class TabBar {
     newBtn.title = "New tab";
     newBtn.addEventListener("click", () => this.callback("create"));
 
+    const archiveBtn = document.createElement("button");
+    archiveBtn.className = "tab-archive-btn";
+    archiveBtn.innerHTML = "📦";
+    archiveBtn.title = "Toggle Archive";
+    archiveBtn.addEventListener("click", () => this.callback("archive" as TabAction));
+
     this.container.appendChild(tabList);
     this.container.appendChild(newBtn);
+    this.container.appendChild(archiveBtn);
   }
 
   private startRename(tab: Tab, titleEl: HTMLElement): void {

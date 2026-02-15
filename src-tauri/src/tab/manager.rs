@@ -157,6 +157,16 @@ impl TabManager {
         Ok(())
     }
 
+    /// Set the file_path on a tab and persist to meta.json
+    pub fn set_file_path(&mut self, id: &str, path: &str) -> std::io::Result<()> {
+        if let Some(tab) = self.tabs.get_mut(id) {
+            tab.file_path = Some(path.to_string());
+            tab.touch();
+            self.write_meta(id)?;
+        }
+        Ok(())
+    }
+
     /// Write meta.json for a specific tab
     fn write_meta(&self, id: &str) -> std::io::Result<()> {
         if let Some(tab) = self.tabs.get(id) {

@@ -9,6 +9,8 @@ pub struct Tab {
     pub created_at: String,
     pub updated_at: String,
     pub archived: bool,
+    #[serde(default)]
+    pub file_path: Option<String>,
 }
 
 impl Tab {
@@ -20,7 +22,13 @@ impl Tab {
             created_at: now.clone(),
             updated_at: now,
             archived: false,
+            file_path: None,
         }
+    }
+
+    #[allow(dead_code)]
+    pub fn is_saved(&self) -> bool {
+        self.file_path.is_some()
     }
 
     pub fn touch(&mut self) {

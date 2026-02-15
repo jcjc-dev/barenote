@@ -48,3 +48,11 @@ export async function getConfig(): Promise<AppConfig> {
 export async function saveConfig(config: AppConfig): Promise<void> {
   return invoke("save_config", { config });
 }
+
+export async function setWindowTheme(theme: string): Promise<void> {
+  return invoke("set_window_theme", { theme });
+}
+
+export async function saveTabToPath(id: string, path: string): Promise<void> {
+  return invoke("save_tab_to_path", { id, path });
+}

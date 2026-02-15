@@ -4,6 +4,7 @@ export interface Tab {
   created_at: string;
   updated_at: string;
   archived: boolean;
+  file_path: string | null;
 }
 
 export interface Delta {
@@ -24,4 +25,5 @@ export interface AppConfig {
   editor: EditorConfig;
   snapshot_interval_edits: number;
   snapshot_interval_ms: number;
+  theme: string;
 }

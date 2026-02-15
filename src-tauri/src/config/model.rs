@@ -40,10 +40,13 @@ pub struct AppConfig {
     pub snapshot_interval_edits: u32,
     #[serde(default = "default_snapshot_ms")]
     pub snapshot_interval_ms: u64,
+    #[serde(default = "default_theme")]
+    pub theme: String,
 }
 
 fn default_snapshot_edits() -> u32 { 50 }
 fn default_snapshot_ms() -> u64 { 5000 }
+fn default_theme() -> String { "system".to_string() }
 
 fn default_keybindings() -> HashMap<String, String> {
     let mut map = HashMap::new();
@@ -54,6 +57,8 @@ fn default_keybindings() -> HashMap<String, String> {
     map.insert("prevTab".to_string(), "Ctrl+Shift+Tab".to_string());
     map.insert("togglePreview".to_string(), "CmdOrCtrl+P".to_string());
     map.insert("settings".to_string(), "CmdOrCtrl+,".to_string());
+    map.insert("saveAs".to_string(), "CmdOrCtrl+Shift+S".to_string());
+    map.insert("toggleArchive".to_string(), "CmdOrCtrl+Shift+A".to_string());
     map
 }
 
@@ -64,6 +69,7 @@ impl Default for AppConfig {
             editor: EditorConfig::default(),
             snapshot_interval_edits: 50,
             snapshot_interval_ms: 5000,
+            theme: "system".to_string(),
         }
     }
 }

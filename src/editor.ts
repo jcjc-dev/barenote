@@ -59,24 +59,24 @@ export class RawNoteEditor {
           fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, monospace",
         },
         ".cm-content": {
-          caretColor: "#528bff",
+          caretColor: "var(--editor-caret)",
         },
         ".cm-activeLine": {
-          backgroundColor: "#2c313a",
+          backgroundColor: "var(--editor-active-line)",
         },
         ".cm-gutters": {
-          backgroundColor: "#1e1e1e",
-          color: "#858585",
+          backgroundColor: "var(--editor-gutter)",
+          color: "var(--text-secondary)",
           border: "none",
         },
         ".cm-activeLineGutter": {
-          backgroundColor: "#2c313a",
+          backgroundColor: "var(--editor-active-line)",
         },
-      }, { dark: true }),
+      }),
       EditorView.baseTheme({
         "&.cm-editor": {
-          backgroundColor: "#1e1e1e",
-          color: "#d4d4d4",
+          backgroundColor: "var(--editor-bg)",
+          color: "var(--text-primary)",
         }
       }),
     ];

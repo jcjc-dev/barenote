@@ -112,3 +112,24 @@ pub fn save_config(config: AppConfig, state: State<AppState>) -> Result<(), Stri
     *current = config;
     Ok(())
 }
+
+#[tauri::command]
+pub fn save_tab_to_path(id: String, path: String, state: State<AppState>) -> Result<(), String> {
+    let mut mgr = state.tab_manager.lock().map_err(|e| e.to_string())?;
+    let tab_dir = crate::persistence::storage::tab_dir(&mgr.app_dir, &id);
+    let content = crate::persistence::recovery::recover_tab(&tab_dir).map_err(|e| e.to_string())?;
+    std::fs::write(&path, &content).map_err(|e| e.to_string())?;
+    mgr.set_file_path(&id, &path).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_window_theme(theme: String, window: tauri::WebviewWindow) -> Result<(), String> {
+    use tauri::Theme;
+    let tauri_theme = match theme.as_str() {
+        "light" => Some(Theme::Light),
+        "dark" => Some(Theme::Dark),
+        _ => None,
+    };
+    window.set_theme(tauri_theme).map_err(|e| e.to_string())
+}

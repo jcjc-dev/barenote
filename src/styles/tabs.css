@@ -1,8 +1,8 @@
 .tab-bar-container {
   display: flex;
   align-items: center;
-  background: #252526;
-  border-bottom: 1px solid #1e1e1e;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--bg-primary);
   height: 36px;
   user-select: none;
   -webkit-app-region: drag;
@@ -23,8 +23,8 @@
   align-items: center;
   padding: 0 12px;
   height: 36px;
-  background: #2d2d2d;
-  border-right: 1px solid #1e1e1e;
+  background: var(--bg-tertiary);
+  border-right: 1px solid var(--bg-primary);
   cursor: pointer;
   white-space: nowrap;
   min-width: 100px;
@@ -32,10 +32,10 @@
   gap: 8px;
   transition: background 0.1s;
 }
-.tab-item:hover { background: #383838; }
+.tab-item:hover { background: var(--bg-hover); }
 .tab-item.active {
-  background: #1e1e1e;
-  border-bottom: 2px solid #528bff;
+  background: var(--tab-active-bg);
+  border-bottom: 2px solid var(--accent);
 }
 .tab-item.dragging { opacity: 0.5; }
 .tab-title {
@@ -43,6 +43,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 12px;
+}
+.tab-title.unsaved {
+  font-style: italic;
+  opacity: 0.7;
 }
 .tab-close {
   font-size: 16px;
@@ -56,19 +60,30 @@
   transition: opacity 0.1s;
 }
 .tab-item:hover .tab-close { opacity: 0.7; }
-.tab-close:hover { background: rgba(255,255,255,0.1); opacity: 1 !important; }
+.tab-close:hover { background: var(--close-hover-bg); opacity: 1 !important; }
 .tab-new {
   padding: 0 12px;
   height: 36px;
   font-size: 18px;
-  color: #858585;
+  color: var(--text-secondary);
   transition: color 0.1s;
 }
-.tab-new:hover { color: #d4d4d4; }
+.tab-new:hover { color: var(--text-primary); }
+.tab-archive-btn {
+  padding: 0 10px;
+  height: 36px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  transition: color 0.1s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.tab-archive-btn:hover { color: var(--text-primary); }
 .tab-rename-input {
-  background: #3c3c3c;
-  border: 1px solid #528bff;
-  color: #d4d4d4;
+  background: var(--bg-input);
+  border: 1px solid var(--accent);
+  color: var(--text-primary);
   font-size: 12px;
   padding: 2px 4px;
   outline: none;
