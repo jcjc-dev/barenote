@@ -1,4 +1,4 @@
-import { Editor, rootCtx, defaultValueCtx, editorViewCtx } from "@milkdown/kit/core";
+import { Editor, rootCtx, defaultValueCtx, editorViewCtx, remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
 import { history } from "@milkdown/kit/plugin/history";
@@ -36,6 +36,13 @@ export class MilkdownEditor {
         .config((ctx) => {
           ctx.set(rootCtx, this.wrapper);
           ctx.set(defaultValueCtx, content);
+          ctx.update(remarkStringifyOptionsCtx, (options) => ({
+            ...options,
+            handlers: {
+              ...options.handlers,
+              break: () => '\n',
+            },
+          }));
         })
         .use(listener)
         .use(commonmark)
@@ -69,7 +76,8 @@ export class MilkdownEditor {
   getContent(): string {
     if (!this.editor) return "";
     try {
-      return this.editor.action(getMarkdown());
+      const md = this.editor.action(getMarkdown());
+      return md.replace(/<br\s*\/?>/g, '\n');
     } catch {
       return "";
     }
