@@ -53,15 +53,15 @@ fn default_keybindings() -> HashMap<String, String> {
     map.insert("newTab".to_string(), "CmdOrCtrl+N".to_string());
     map.insert("closeTab".to_string(), "CmdOrCtrl+W".to_string());
     map.insert("find".to_string(), "CmdOrCtrl+F".to_string());
-    map.insert("nextTab".to_string(), "Ctrl+Tab".to_string());
-    map.insert("prevTab".to_string(), "Ctrl+Shift+Tab".to_string());
+    map.insert("nextTab".to_string(), "CmdOrCtrl+Shift+]".to_string());
+    map.insert("prevTab".to_string(), "CmdOrCtrl+Shift+[".to_string());
     map.insert("togglePreview".to_string(), "CmdOrCtrl+P".to_string());
     map.insert("settings".to_string(), "CmdOrCtrl+,".to_string());
     map.insert("saveAs".to_string(), "CmdOrCtrl+Shift+S".to_string());
     map.insert("toggleArchive".to_string(), "CmdOrCtrl+Shift+A".to_string());
     map.insert("renameTab".to_string(), "CmdOrCtrl+R".to_string());
-    map.insert("moveTabLeft".to_string(), "CmdOrCtrl+Shift+[".to_string());
-    map.insert("moveTabRight".to_string(), "CmdOrCtrl+Shift+]".to_string());
+    map.insert("moveTabLeft".to_string(), "Ctrl+Shift+Tab".to_string());
+    map.insert("moveTabRight".to_string(), "Ctrl+Tab".to_string());
     map
 }
 
