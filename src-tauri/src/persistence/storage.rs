@@ -1,17 +1,10 @@
 use std::path::PathBuf;
 use std::fs;
 
-/// Returns the app data directory: ~/.rawnote on Linux/macOS, %USERPROFILE%\.rawnote on Windows
-pub fn get_app_dir() -> PathBuf {
-    let home = dirs::home_dir().expect("Could not determine home directory");
-    home.join(".rawnote")
-}
-
-/// Ensures the app directory and tabs subdirectory exist
-pub fn ensure_app_dir() -> std::io::Result<PathBuf> {
-    let app_dir = get_app_dir();
+/// Ensures the app directory and tabs subdirectory exist at the given path
+pub fn ensure_app_dir(app_dir: &PathBuf) -> std::io::Result<PathBuf> {
     fs::create_dir_all(app_dir.join("tabs"))?;
-    Ok(app_dir)
+    Ok(app_dir.clone())
 }
 
 /// Ensures a tab's directory exists, returns the path

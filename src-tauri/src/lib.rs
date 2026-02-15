@@ -4,13 +4,18 @@ mod tab;
 mod config;
 
 use commands::AppState;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
-        .manage(AppState::new())
+        .setup(|app| {
+            let app_dir = app.path().app_data_dir().expect("Failed to resolve app data directory");
+            app.manage(AppState::new(app_dir));
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::create_tab,
             commands::rename_tab,

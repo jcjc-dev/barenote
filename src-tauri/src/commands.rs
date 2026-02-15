@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::State;
 use crate::tab::model::Tab;
@@ -11,8 +12,8 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new() -> Self {
-        let app_dir = storage::ensure_app_dir().expect("Failed to create app directory");
+    pub fn new(app_dir: PathBuf) -> Self {
+        let app_dir = storage::ensure_app_dir(&app_dir).expect("Failed to create app directory");
         let mut tab_manager = TabManager::new(app_dir.clone());
         let _ = tab_manager.load_all_tabs();
         let _ = tab_manager.load_session();

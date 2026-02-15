@@ -73,10 +73,14 @@ A Delta represents a single text change: delete `delete_count` characters starti
 
 ## 3. File Layout
 
-All data is stored in `~/.rawnote/` (Linux/macOS) or `%USERPROFILE%\.rawnote\` (Windows):
+All data is stored in the platform-standard app data directory (resolved via Tauri's `app_data_dir()`):
+
+- **macOS**: `~/Library/Application Support/com.rawnote.app/`
+- **Linux**: `~/.local/share/com.rawnote.app/` (or `$XDG_DATA_HOME`)
+- **Windows**: `C:\Users\<user>\AppData\Roaming\com.rawnote.app\`
 
 ```
-~/.rawnote/
+<app_data_dir>/
 ├── config.json          # User configuration (keybindings, editor settings, snapshot intervals)
 ├── session.json         # Active tab order and selected tab ID
 └── tabs/
@@ -178,11 +182,11 @@ RawNote's WAL provides **sub-second durability**: every individual edit is fsync
 |---------|-------------|---------|
 | **fsync** | `File::sync_all()` → `fsync()` | `File::sync_all()` → `FlushFileBuffers()` |
 | **Directory fsync** | Performed after atomic rename (ensures rename durability) | Not performed (NTFS rename is durable without it) |
-| **App directory** | `~/.rawnote/` | `%USERPROFILE%\.rawnote\` |
-| **Home dir resolution** | `dirs::home_dir()` → `$HOME` | `dirs::home_dir()` → `%USERPROFILE%` |
+| **App directory** | `~/Library/Application Support/com.rawnote.app/` (macOS) / `~/.local/share/com.rawnote.app/` (Linux) | `%APPDATA%\com.rawnote.app\` |
+| **Path resolution** | Tauri `app_data_dir()` | Tauri `app_data_dir()` |
 | **Atomic rename** | `std::fs::rename` → `rename()` (POSIX atomic for same-dir) | `std::fs::rename` → `MoveFileEx` (atomic for same-dir) |
 
-The `dirs` crate (v5) handles cross-platform home directory resolution. The `#[cfg(unix)]` conditional compilation ensures directory fsync only runs on Unix platforms.
+Tauri's `app_data_dir()` handles cross-platform path resolution. The `#[cfg(unix)]` conditional compilation ensures directory fsync only runs on Unix platforms.
 
 ## 6. IPC Command Reference
 
@@ -252,7 +256,7 @@ The `App` class manages snapshot timing on the frontend side:
 
 ### Keybindings
 
-Default keybindings (customizable in `~/.rawnote/config.json`):
+Default keybindings (customizable in `config.json` within the app data directory):
 
 | Action | Shortcut |
 |--------|----------|
