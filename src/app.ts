@@ -1,4 +1,5 @@
 import { RawNoteEditor, type ChangeCallback } from "./editor";
+import { MilkdownEditor } from "./milkdown-editor";
 import { TabBar } from "./tabs";
 import { ArchivePanel } from "./archive";
 import { MarkdownPreview } from "./preview";
@@ -9,6 +10,9 @@ import type { Tab, AppConfig } from "./types";
 
 export class App {
   private editor: RawNoteEditor | null = null;
+  private milkdownEditor: MilkdownEditor | null = null;
+  private tabModes: Map<string, 'raw' | 'wysiwyg'> = new Map();
+  private modeIndicator: HTMLElement | null = null;
   private tabBar: TabBar | null = null;
   private archive: ArchivePanel | null = null;
   private preview: MarkdownPreview | null = null;
@@ -19,27 +23,37 @@ export class App {
   private snapshotTimer: number | null = null;
   private settingsView: SettingsView | null = null;
   private isSettingsActive: boolean = false;
+  private isLoadingContent: boolean = false;
 
   constructor() {
     this.keybindings = new KeybindingManager();
   }
 
   async init(): Promise<void> {
+    const defaults: AppConfig = {
+      theme: "system",
+      keybindings: {
+        newTab: "CmdOrCtrl+N",
+        closeTab: "CmdOrCtrl+W",
+        find: "CmdOrCtrl+F",
+        togglePreview: "CmdOrCtrl+P",
+        toggleEditorMode: "CmdOrCtrl+Shift+M",
+      },
+      editor: { font_size: 14, tab_size: 2, word_wrap: true, line_numbers: true },
+      snapshot_interval_edits: 50,
+      snapshot_interval_ms: 5000,
+    };
+
     try {
-      this.config = await ipc.getConfig();
-    } catch {
+      const loaded = await ipc.getConfig();
       this.config = {
-        theme: "system",
-        keybindings: {
-          newTab: "CmdOrCtrl+N",
-          closeTab: "CmdOrCtrl+W",
-          find: "CmdOrCtrl+F",
-          togglePreview: "CmdOrCtrl+P",
-        },
-        editor: { font_size: 14, tab_size: 2, word_wrap: true, line_numbers: true },
-        snapshot_interval_edits: 50,
-        snapshot_interval_ms: 5000,
+        ...defaults,
+        ...loaded,
+        keybindings: { ...defaults.keybindings, ...loaded.keybindings },
+        editor: { ...defaults.editor, ...loaded.editor },
       };
+    } catch {
+      this.config = defaults;
     }
 
     // Initialize theme system
@@ -78,6 +92,12 @@ export class App {
 
     this.preview = new MarkdownPreview(document.getElementById("preview-panel")!);
 
+    this.modeIndicator = document.createElement("div");
+    this.modeIndicator.classList.add("mode-indicator");
+    this.modeIndicator.textContent = "Raw";
+    editorContainer.style.position = "relative";
+    editorContainer.appendChild(this.modeIndicator);
+
     this.archive = new ArchivePanel(
       document.getElementById("archive-panel")!,
       (tab) => { this.handleTabRestored(tab); }
@@ -91,6 +111,7 @@ export class App {
     this.keybindings.register("closeTab", () => { this.closeCurrentTab(); });
     this.keybindings.register("find", () => this.editor?.openSearch());
     this.keybindings.register("togglePreview", () => this.togglePreview());
+    this.keybindings.register("toggleEditorMode", () => this.toggleEditorMode());
     this.keybindings.register("toggleArchive", () => { this.archive?.toggle(); });
     this.keybindings.register("saveAs", () => { this.saveAs(); });
     this.keybindings.register("settings", () => { this.openSettings(); });
@@ -119,19 +140,45 @@ export class App {
   }
 
   private async loadTabContent(tabId: string): Promise<void> {
+    this.isLoadingContent = true;
     try {
       const content = await ipc.getTabContent(tabId);
-      this.editor?.setContent(content);
+      const mode = this.tabModes.get(tabId) || (this.config?.editor?.default_editor_mode ?? 'raw');
+
+      if (mode === 'wysiwyg') {
+        this.editor?.hide();
+        if (!this.milkdownEditor) {
+          const editorContainer = document.getElementById("editor-container")!;
+          this.milkdownEditor = new MilkdownEditor(editorContainer, content, () => {
+            this.handleMilkdownChange();
+          });
+          await this.milkdownEditor.waitForReady();
+        } else {
+          this.milkdownEditor.show();
+          await this.milkdownEditor.setContent(content);
+        }
+      } else {
+        this.milkdownEditor?.hide();
+        this.editor?.show();
+        this.editor?.setContent(content);
+      }
+
+      this.tabModes.set(tabId, mode);
+      this.updateModeIndicator(mode);
       this.editCount = 0;
       this.resetSnapshotTimer();
     } catch (e) {
       console.error("Failed to load tab content:", e);
+      this.milkdownEditor?.hide();
+      this.editor?.show();
       this.editor?.setContent("");
+    } finally {
+      this.isLoadingContent = false;
     }
   }
 
   private handleEditorChanges(changes: { fromA: number; toA: number; inserted: string }[]): void {
-    if (!this.currentTabId) return;
+    if (!this.currentTabId || this.isLoadingContent) return;
 
     for (const change of changes) {
       ipc.appendDelta(
@@ -155,8 +202,12 @@ export class App {
   }
 
   private saveSnapshot(): void {
-    if (!this.currentTabId || !this.editor) return;
-    const content = this.editor.getContent();
+    if (!this.currentTabId) return;
+    const currentMode = this.tabModes.get(this.currentTabId) || 'raw';
+    const content = currentMode === 'wysiwyg'
+      ? (this.milkdownEditor?.getContent() || '')
+      : (this.editor?.getContent() || '');
+    if (!content && content !== '') return;
     ipc.updateTabContent(this.currentTabId, content).catch(console.error);
     this.editCount = 0;
     this.resetSnapshotTimer();
@@ -228,7 +279,30 @@ export class App {
       this.currentTabId = tab.id;
       this.editor?.setContent("");
       this.editCount = 0;
-      this.editor?.focus();
+
+      const defaultMode = this.config?.editor?.default_editor_mode ?? 'raw';
+      if (defaultMode === 'wysiwyg' && this.currentTabId) {
+        this.tabModes.set(this.currentTabId, 'wysiwyg');
+        this.editor?.hide();
+        if (!this.milkdownEditor) {
+          const editorContainer = document.getElementById("editor-container")!;
+          this.milkdownEditor = new MilkdownEditor(editorContainer, "", () => {
+            this.handleMilkdownChange();
+          });
+          await this.milkdownEditor.waitForReady();
+        } else {
+          await this.milkdownEditor.setContent("");
+          this.milkdownEditor.show();
+        }
+        this.updateModeIndicator('wysiwyg');
+        await this.milkdownEditor?.focus();
+      } else {
+        this.tabModes.set(this.currentTabId!, 'raw');
+        this.milkdownEditor?.hide();
+        this.editor?.show();
+        this.updateModeIndicator('raw');
+        this.editor?.focus();
+      }
     } catch (e) {
       console.error("Failed to create tab:", e);
     }
@@ -302,6 +376,92 @@ export class App {
       }
     } catch (e) {
       console.error("Save As failed:", e);
+    }
+  }
+
+  private async toggleEditorMode(): Promise<void> {
+    if (!this.currentTabId || this.isSettingsActive) return;
+
+    const currentMode = this.tabModes.get(this.currentTabId) || 'raw';
+    const newMode = currentMode === 'raw' ? 'wysiwyg' : 'raw';
+    console.log("[App] toggleEditorMode:", currentMode, "->", newMode);
+
+    // Get content from whichever editor is active — must await milkdown readiness
+    let content: string;
+    if (currentMode === 'raw') {
+      content = this.editor?.getContent() || '';
+    } else {
+      if (this.milkdownEditor) {
+        await this.milkdownEditor.waitForReady();
+      }
+      content = this.milkdownEditor?.getContent() || '';
+    }
+    console.log("[App] content to transfer, length:", content.length, "preview:", content.substring(0, 80));
+
+    if (this.currentTabId && this.editCount > 0) {
+      this.saveSnapshot();
+    }
+
+    if (newMode === 'wysiwyg') {
+      this.editor?.hide();
+
+      if (!this.milkdownEditor) {
+        const editorContainer = document.getElementById("editor-container")!;
+        console.log("[App] Creating new MilkdownEditor");
+        this.milkdownEditor = new MilkdownEditor(editorContainer, content, () => {
+          this.handleMilkdownChange();
+        });
+        await this.milkdownEditor.waitForReady();
+        console.log("[App] MilkdownEditor ready");
+      } else {
+        console.log("[App] Reusing existing MilkdownEditor, setting content");
+        this.milkdownEditor.show();
+        await this.milkdownEditor.setContent(content);
+      }
+
+      // Debug: check DOM state
+      const ec = document.getElementById("editor-container");
+      if (ec) {
+        console.log("[App] editor-container children:", ec.children.length);
+        for (let i = 0; i < ec.children.length; i++) {
+          const c = ec.children[i] as HTMLElement;
+          console.log(`[App]   child ${i}: <${c.tagName} class="${c.className}"> display="${c.style.display}" offsetHeight=${c.offsetHeight}`);
+        }
+      }
+
+      if (this.preview?.isVisible()) {
+        this.togglePreview();
+      }
+
+      await this.milkdownEditor.focus();
+    } else {
+      this.milkdownEditor?.hide();
+      this.editor?.show();
+      this.isLoadingContent = true;
+      this.editor?.setContent(content);
+      this.isLoadingContent = false;
+      this.editor?.focus();
+    }
+
+    this.tabModes.set(this.currentTabId, newMode);
+    this.updateModeIndicator(newMode);
+    this.editCount = 0;
+    this.resetSnapshotTimer();
+  }
+
+  private handleMilkdownChange(): void {
+    if (!this.currentTabId) return;
+    this.editCount++;
+    const threshold = this.config?.snapshot_interval_edits ?? 50;
+    if (this.editCount >= threshold) {
+      this.saveSnapshot();
+    }
+  }
+
+  private updateModeIndicator(mode: 'raw' | 'wysiwyg'): void {
+    if (this.modeIndicator) {
+      this.modeIndicator.textContent = mode === 'raw' ? 'Raw' : 'MD';
+      this.modeIndicator.classList.toggle('wysiwyg-active', mode === 'wysiwyg');
     }
   }
 
