@@ -7,7 +7,7 @@ import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 
 export type ChangeCallback = (changes: { fromA: number; toA: number; inserted: string }[]) => void;
 
-export class RawNoteEditor {
+export class BareNoteEditor {
   private view: EditorView;
   private onChange: ChangeCallback | null = null;
 

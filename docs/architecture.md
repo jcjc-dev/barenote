@@ -1,8 +1,8 @@
-# RawNote Architecture
+# BareNote Architecture
 
 ## 1. Overview
 
-RawNote is a lightweight, cross-platform desktop note-taking app designed to replace Notepad++/Sublime Text for quick daily notes. It prioritizes crash-proof persistence — every keystroke is durably saved, so no work is ever lost.
+BareNote is a lightweight, cross-platform desktop note-taking app designed to replace Notepad++/Sublime Text for quick daily notes. It prioritizes crash-proof persistence — every keystroke is durably saved, so no work is ever lost.
 
 **Stack:**
 
@@ -75,9 +75,9 @@ A Delta represents a single text change: delete `delete_count` characters starti
 
 All data is stored in the platform-standard app data directory (resolved via Tauri's `app_data_dir()`):
 
-- **macOS**: `~/Library/Application Support/com.rawnote.app/`
-- **Linux**: `~/.local/share/com.rawnote.app/` (or `$XDG_DATA_HOME`)
-- **Windows**: `C:\Users\<user>\AppData\Roaming\com.rawnote.app\`
+- **macOS**: `~/Library/Application Support/com.barenote.app/`
+- **Linux**: `~/.local/share/com.barenote.app/` (or `$XDG_DATA_HOME`)
+- **Windows**: `C:\Users\<user>\AppData\Roaming\com.barenote.app\`
 
 ```
 <app_data_dir>/
@@ -101,7 +101,7 @@ All data is stored in the platform-standard app data directory (resolved via Tau
 
 ## 4. Crash-Safety Strategy
 
-This is RawNote's defining feature. The persistence layer uses a **write-ahead log (WAL) + periodic snapshots** pattern, similar to databases like SQLite and PostgreSQL.
+This is BareNote's defining feature. The persistence layer uses a **write-ahead log (WAL) + periodic snapshots** pattern, similar to databases like SQLite and PostgreSQL.
 
 ### Write-Ahead Log (WAL)
 
@@ -167,14 +167,14 @@ On startup, for each tab, the `recover_tab` function:
 
 ### Comparison with Notepad++
 
-| | Notepad++ | RawNote |
+| | Notepad++ | BareNote |
 |--|-----------|---------|
 | **Backup mechanism** | Periodic backup files (~10s intervals) + `session.xml` | WAL (every edit fsynced) + atomic snapshots |
 | **Max data loss on crash** | Up to ~10 seconds of work | At most the last keystroke (one delta) |
 | **Backup file format** | Full copy of the file | Append-only delta journal + periodic snapshots |
 | **Recovery** | Restore from last backup | Replay WAL on top of last snapshot |
 
-RawNote's WAL provides **sub-second durability**: every individual edit is fsynced to disk before the IPC call returns. The only way to lose data is if the OS lies about fsync (which some filesystems do — but that's an OS-level issue, not an app-level one).
+BareNote's WAL provides **sub-second durability**: every individual edit is fsynced to disk before the IPC call returns. The only way to lose data is if the OS lies about fsync (which some filesystems do — but that's an OS-level issue, not an app-level one).
 
 ## 5. Platform Differences
 
@@ -182,7 +182,7 @@ RawNote's WAL provides **sub-second durability**: every individual edit is fsync
 |---------|-------------|---------|
 | **fsync** | `File::sync_all()` → `fsync()` | `File::sync_all()` → `FlushFileBuffers()` |
 | **Directory fsync** | Performed after atomic rename (ensures rename durability) | Not performed (NTFS rename is durable without it) |
-| **App directory** | `~/Library/Application Support/com.rawnote.app/` (macOS) / `~/.local/share/com.rawnote.app/` (Linux) | `%APPDATA%\com.rawnote.app\` |
+| **App directory** | `~/Library/Application Support/com.barenote.app/` (macOS) / `~/.local/share/com.barenote.app/` (Linux) | `%APPDATA%\com.barenote.app\` |
 | **Path resolution** | Tauri `app_data_dir()` | Tauri `app_data_dir()` |
 | **Atomic rename** | `std::fs::rename` → `rename()` (POSIX atomic for same-dir) | `std::fs::rename` → `MoveFileEx` (atomic for same-dir) |
 
@@ -229,7 +229,7 @@ The frontend is **vanilla TypeScript** with no framework (no React, Vue, etc.). 
 src/
 ├── main.ts          # Entry point — creates and initializes the App
 ├── app.ts           # App class — orchestrates all components
-├── editor.ts        # CodeMirror 6 wrapper (RawNoteEditor)
+├── editor.ts        # CodeMirror 6 wrapper (BareNoteEditor)
 ├── tabs.ts          # Tab bar UI (TabBar) — create, select, close, drag-to-reorder
 ├── archive.ts       # Archive panel (ArchivePanel) — slide-out panel for restoring tabs
 ├── preview.ts       # Markdown preview (MarkdownPreview) — renders via Marked

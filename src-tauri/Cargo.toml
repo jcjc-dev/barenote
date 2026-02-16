@@ -1,10 +1,10 @@
 [package]
-name = "rawnote"
+name = "barenote"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "rawnote_lib"
+name = "barenote_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [build-dependencies]

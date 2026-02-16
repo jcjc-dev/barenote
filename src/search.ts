@@ -1,5 +1,5 @@
-import type { RawNoteEditor } from "./editor";
+import type { BareNoteEditor } from "./editor";
 
-export function openSearch(editor: RawNoteEditor): void {
+export function openSearch(editor: BareNoteEditor): void {
   editor.openSearch();
 }
