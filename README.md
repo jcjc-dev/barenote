@@ -1,7 +1,7 @@
 # BareNote
 
 <p align="center">
-  <img src="assets/icon.png" alt="BareNote icon" width="128" />
+  <img src="assets/icon.png" alt="BareNote icon" width="384" />
 </p>
 
 A simple, fast, crash-proof text editor. Built with [Tauri 2](https://v2.tauri.app/) and [CodeMirror 6](https://codemirror.net/).
