@@ -1,4 +1,4 @@
-import { RawNoteEditor, type ChangeCallback } from "./editor";
+import { BareNoteEditor, type ChangeCallback } from "./editor";
 import { MilkdownEditor } from "./milkdown-editor";
 import { TabBar } from "./tabs";
 import { ArchivePanel } from "./archive";
@@ -9,7 +9,7 @@ import * as ipc from "./ipc";
 import type { Tab, AppConfig } from "./types";
 
 export class App {
-  private editor: RawNoteEditor | null = null;
+  private editor: BareNoteEditor | null = null;
   private milkdownEditor: MilkdownEditor | null = null;
   private tabModes: Map<string, 'raw' | 'wysiwyg'> = new Map();
   private modeIndicator: HTMLElement | null = null;
@@ -88,7 +88,7 @@ export class App {
 
     const editorContainer = document.getElementById("editor-container")!;
     const onChange: ChangeCallback = (changes) => this.handleEditorChanges(changes);
-    this.editor = new RawNoteEditor(editorContainer, "", onChange);
+    this.editor = new BareNoteEditor(editorContainer, "", onChange);
 
     this.preview = new MarkdownPreview(document.getElementById("preview-panel")!);
 

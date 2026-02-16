@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicorevin/tauri/refs/heads/dev/crates/tauri-cli/schema.json",
-  "productName": "RawNote",
+  "productName": "BareNote",
   "version": "0.1.0",
-  "identifier": "com.rawnote.app",
+  "identifier": "com.barenote.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "RawNote",
+        "title": "BareNote",
         "width": 1200,
         "height": 800,
         "resizable": true,

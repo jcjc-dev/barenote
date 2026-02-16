@@ -1,4 +1,8 @@
-# RawNote
+# BareNote
+
+<p align="center">
+  <img src="assets/icon.png" alt="BareNote icon" width="128" />
+</p>
 
 A simple, fast, crash-proof text editor. Built with [Tauri 2](https://v2.tauri.app/) and [CodeMirror 6](https://codemirror.net/).
 
@@ -26,7 +30,7 @@ Every keystroke is saved to disk immediately — even if the app crashes, your m
 ### Run in Development
 
 ```bash
-git clone https://github.com/jcjc-dev/rawnote.git && cd rawnote
+git clone https://github.com/jcjc-dev/barenote.git && cd barenote
 npm install
 npx tauri dev
 ```
