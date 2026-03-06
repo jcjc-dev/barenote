@@ -1,16 +1,17 @@
 import { BareNoteEditor, type ChangeCallback } from "./editor";
-import { MilkdownEditor } from "./milkdown-editor";
 import { TabBar } from "./tabs";
 import { ArchivePanel } from "./archive";
 import { MarkdownPreview } from "./preview";
 import { KeybindingManager } from "./keybindings";
 import { SettingsView } from "./settings";
+import { Toast } from "./toast";
 import * as ipc from "./ipc";
 import type { Tab, AppConfig } from "./types";
 
 export class App {
   private editor: BareNoteEditor | null = null;
-  private milkdownEditor: MilkdownEditor | null = null;
+  private milkdownEditor: import('./milkdown-editor').MilkdownEditor | null = null;
+  private toast: Toast;
   private tabModes: Map<string, 'raw' | 'wysiwyg'> = new Map();
   private modeIndicator: HTMLElement | null = null;
   private tabBar: TabBar | null = null;
@@ -21,12 +22,15 @@ export class App {
   private currentTabId: string | null = null;
   private editCount: number = 0;
   private snapshotTimer: number | null = null;
+  private pendingDeltas: { fromA: number; toA: number; inserted: string }[] = [];
+  private batchTimer: number | null = null;
   private settingsView: SettingsView | null = null;
   private isSettingsActive: boolean = false;
   private isLoadingContent: boolean = false;
 
   constructor() {
     this.keybindings = new KeybindingManager();
+    this.toast = new Toast();
   }
 
   async init(): Promise<void> {
@@ -36,8 +40,10 @@ export class App {
         newTab: "CmdOrCtrl+N",
         closeTab: "CmdOrCtrl+W",
         find: "CmdOrCtrl+F",
+        replace: "CmdOrCtrl+H",
         togglePreview: "CmdOrCtrl+P",
         toggleEditorMode: "CmdOrCtrl+Shift+M",
+        openFile: "CmdOrCtrl+O",
       },
       editor: { font_size: 14, tab_size: 2, word_wrap: true, line_numbers: true },
       snapshot_interval_edits: 50,
@@ -110,10 +116,12 @@ export class App {
     this.keybindings.register("newTab", () => { this.createNewTab(); });
     this.keybindings.register("closeTab", () => { this.closeCurrentTab(); });
     this.keybindings.register("find", () => this.editor?.openSearch());
+    this.keybindings.register("replace", () => this.editor?.openReplace());
     this.keybindings.register("togglePreview", () => this.togglePreview());
     this.keybindings.register("toggleEditorMode", () => this.toggleEditorMode());
     this.keybindings.register("toggleArchive", () => { this.archive?.toggle(); });
     this.keybindings.register("saveAs", () => { this.saveAs(); });
+    this.keybindings.register("openFile", () => { this.openFileDialog(); });
     this.keybindings.register("settings", () => { this.openSettings(); });
     this.keybindings.register("renameTab", () => { this.tabBar?.renameActiveTab(); });
     this.keybindings.register("nextTab", () => { this.tabBar?.switchTab(1); });
@@ -136,6 +144,7 @@ export class App {
       }
     } catch (e) {
       console.error("Failed to load tabs:", e);
+      this.toast.show("Failed to load tabs", "error");
     }
   }
 
@@ -150,10 +159,7 @@ export class App {
         if (!this.milkdownEditor) {
           const editorContainer = document.getElementById("editor-container")!;
           editorContainer.classList.add('mode-wysiwyg');
-          this.milkdownEditor = new MilkdownEditor(editorContainer, content, () => {
-            this.handleMilkdownChange();
-          });
-          await this.milkdownEditor.waitForReady();
+          await this.ensureMilkdownEditor(editorContainer, content);
         } else {
           this.milkdownEditor.show();
           await this.milkdownEditor.setContent(content);
@@ -170,6 +176,7 @@ export class App {
       this.resetSnapshotTimer();
     } catch (e) {
       console.error("Failed to load tab content:", e);
+      this.toast.show("Failed to load note content", "error");
       this.milkdownEditor?.hide();
       this.editor?.show();
       this.editor?.setContent("");
@@ -181,14 +188,15 @@ export class App {
   private handleEditorChanges(changes: { fromA: number; toA: number; inserted: string }[]): void {
     if (!this.currentTabId || this.isLoadingContent) return;
 
-    for (const change of changes) {
-      ipc.appendDelta(
-        this.currentTabId,
-        change.fromA,
-        change.toA - change.fromA,
-        change.inserted
-      ).catch(console.error);
+    this.pendingDeltas.push(...changes);
+
+    if (this.batchTimer !== null) {
+      clearTimeout(this.batchTimer);
     }
+    this.batchTimer = window.setTimeout(() => {
+      this.flushDeltaBatch();
+      this.batchTimer = null;
+    }, 50);
 
     this.editCount++;
 
@@ -202,8 +210,21 @@ export class App {
     }
   }
 
+  private flushDeltaBatch(): void {
+    if (!this.currentTabId || this.pendingDeltas.length === 0) return;
+    const deltas = this.pendingDeltas.map((d) => ({
+      position: d.fromA,
+      deleteCount: d.toA - d.fromA,
+      inserted: d.inserted,
+    }));
+    this.pendingDeltas = [];
+    ipc.appendDeltaBatch(this.currentTabId, deltas).catch(console.error);
+  }
+
   private saveSnapshot(): void {
     if (!this.currentTabId) return;
+    // Flush any pending deltas before snapshotting
+    this.flushDeltaBatch();
     const currentMode = this.tabModes.get(this.currentTabId) || 'raw';
     const content = currentMode === 'wysiwyg'
       ? (this.milkdownEditor?.getContent() || '')
@@ -287,11 +308,7 @@ export class App {
         this.editor?.hide();
         if (!this.milkdownEditor) {
           const editorContainer = document.getElementById("editor-container")!;
-          editorContainer.classList.add('mode-wysiwyg');
-          this.milkdownEditor = new MilkdownEditor(editorContainer, "", () => {
-            this.handleMilkdownChange();
-          });
-          await this.milkdownEditor.waitForReady();
+          await this.ensureMilkdownEditor(editorContainer, "");
         } else {
           this.milkdownEditor.show();
           await this.milkdownEditor.setContent("");
@@ -307,6 +324,7 @@ export class App {
       }
     } catch (e) {
       console.error("Failed to create tab:", e);
+      this.toast.show("Failed to create new tab", "error");
     }
   }
 
@@ -338,6 +356,7 @@ export class App {
       }
     } catch (e) {
       console.error("Failed to archive tab:", e);
+      this.toast.show("Failed to close tab", "error");
     }
   }
 
@@ -352,6 +371,7 @@ export class App {
       await ipc.reorderTabs(order);
     } catch (e) {
       console.error("Failed to persist tab order:", e);
+      this.toast.show("Failed to save tab order", "error");
     }
   }
 
@@ -378,7 +398,32 @@ export class App {
       }
     } catch (e) {
       console.error("Save As failed:", e);
+      this.toast.show("Failed to save file", "error");
     }
+  }
+
+  private async openFileDialog(): Promise<void> {
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: "All Files", extensions: ["*"] }],
+      });
+      if (selected) {
+        const tabId = await ipc.openFile(selected);
+        await this.loadTabs();
+        await this.switchTab(tabId);
+      }
+    } catch (e) {
+      console.error("Open file failed:", e);
+      this.toast.show("Failed to open file", "error");
+    }
+  }
+
+  private async switchTab(tabId: string): Promise<void> {
+    this.currentTabId = tabId;
+    this.tabBar?.setActiveTab(tabId);
+    await this.loadTabContent(tabId);
   }
 
   private async toggleEditorMode(): Promise<void> {
@@ -398,6 +443,8 @@ export class App {
       }
       content = this.milkdownEditor?.getContent() || '';
     }
+    // Normalize to prevent newline accumulation between mode switches
+    content = content.replace(/\n{3,}/g, '\n\n').trimEnd();
     console.log("[App] content to transfer, length:", content.length, "preview:", content.substring(0, 80));
 
     if (this.currentTabId && this.editCount > 0) {
@@ -409,12 +456,8 @@ export class App {
 
       if (!this.milkdownEditor) {
         const editorContainer = document.getElementById("editor-container")!;
-        editorContainer.classList.add('mode-wysiwyg');
         console.log("[App] Creating new MilkdownEditor");
-        this.milkdownEditor = new MilkdownEditor(editorContainer, content, () => {
-          this.handleMilkdownChange();
-        });
-        await this.milkdownEditor.waitForReady();
+        await this.ensureMilkdownEditor(editorContainer, content);
         console.log("[App] MilkdownEditor ready");
       } else {
         console.log("[App] Reusing existing MilkdownEditor, setting content");
@@ -436,7 +479,7 @@ export class App {
         this.togglePreview();
       }
 
-      await this.milkdownEditor.focus();
+      await this.milkdownEditor?.focus();
     } else {
       this.milkdownEditor?.hide();
       this.editor?.show();
@@ -450,6 +493,15 @@ export class App {
     this.updateModeIndicator(newMode);
     this.editCount = 0;
     this.resetSnapshotTimer();
+  }
+
+  private async ensureMilkdownEditor(container: HTMLElement, content: string): Promise<void> {
+    const { MilkdownEditor } = await import('./milkdown-editor');
+    container.classList.add('mode-wysiwyg');
+    this.milkdownEditor = new MilkdownEditor(container, content, () => {
+      this.handleMilkdownChange();
+    });
+    await this.milkdownEditor.waitForReady();
   }
 
   private handleMilkdownChange(): void {

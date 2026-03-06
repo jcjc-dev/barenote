@@ -1,3 +1,4 @@
+import DOMPurify from "dompurify";
 import { marked } from "marked";
 
 export class MarkdownPreview {
@@ -30,7 +31,7 @@ export class MarkdownPreview {
   }
 
   private render(markdown: string): void {
-    const html = marked.parse(markdown) as string;
+    const html = DOMPurify.sanitize(marked.parse(markdown) as string);
     this.container.innerHTML = `<div class="preview-content">${html}</div>`;
   }
 }

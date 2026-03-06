@@ -74,8 +74,8 @@ export class SettingsView {
         <div class="keybindings-list">
           ${Object.entries(this.config.keybindings).map(([action, shortcut]) => `
             <div class="settings-row">
-              <label>${this.formatActionName(action)}</label>
-              <input type="text" class="keybinding-input" data-action="${action}" value="${shortcut}" />
+              <label>${this.escapeHtml(this.formatActionName(action))}</label>
+              <input type="text" class="keybinding-input" data-action="${this.escapeHtml(action)}" value="${this.escapeHtml(shortcut)}" />
             </div>
           `).join("")}
         </div>
@@ -131,6 +131,13 @@ export class SettingsView {
       setter((e.target as HTMLInputElement).checked);
       this.save();
     });
+  }
+
+  private escapeHtml(text: string): string {
+    const map: Record<string, string> = {
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, (c) => map[c]);
   }
 
   private formatActionName(action: string): string {

@@ -170,7 +170,7 @@ impl TabManager {
         content_empty && wal_empty
     }
 
-    /// Save session state (tab order + selected tab)
+    /// Save session state (tab order + selected tab) using atomic write
     pub fn save_session(&self) -> std::io::Result<()> {
         let session = SessionState {
             active_tabs: self.tab_order.clone(),
@@ -178,7 +178,15 @@ impl TabManager {
         };
         let json = serde_json::to_string_pretty(&session)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-        fs::write(self.app_dir.join("session.json"), json)?;
+
+        let session_path = self.app_dir.join("session.json");
+        let tmp_path = self.app_dir.join("session.json.tmp");
+
+        let mut file = fs::File::create(&tmp_path)?;
+        std::io::Write::write_all(&mut file, json.as_bytes())?;
+        file.sync_all()?;
+        fs::rename(&tmp_path, &session_path)?;
+
         Ok(())
     }
 
@@ -205,14 +213,19 @@ impl TabManager {
         Ok(())
     }
 
-    /// Write meta.json for a specific tab
+    /// Write meta.json for a specific tab using atomic write
     fn write_meta(&self, id: &str) -> std::io::Result<()> {
         if let Some(tab) = self.tabs.get(id) {
             let tab_dir = self.app_dir.join("tabs").join(id);
             let meta_path = tab_dir.join("meta.json");
+            let tmp_path = tab_dir.join("meta.json.tmp");
             let json = serde_json::to_string_pretty(tab)
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-            fs::write(&meta_path, json)?;
+
+            let mut file = fs::File::create(&tmp_path)?;
+            std::io::Write::write_all(&mut file, json.as_bytes())?;
+            file.sync_all()?;
+            fs::rename(&tmp_path, &meta_path)?;
         }
         Ok(())
     }

@@ -1,7 +1,7 @@
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection, highlightSpecialChars, rectangularSelection, crosshairCursor, highlightActiveLineGutter } from "@codemirror/view";
 import { EditorState, type Extension } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
-import { searchKeymap, highlightSelectionMatches, openSearchPanel } from "@codemirror/search";
+import { search, searchKeymap, highlightSelectionMatches, openSearchPanel } from "@codemirror/search";
 import { bracketMatching, indentOnInput, syntaxHighlighting, defaultHighlightStyle, foldGutter, foldKeymap } from "@codemirror/language";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 
@@ -40,6 +40,7 @@ export class BareNoteEditor {
       crosshairCursor(),
       highlightActiveLine(),
       highlightSelectionMatches(),
+      search(),
       keymap.of([
         ...closeBracketsKeymap,
         ...defaultKeymap,
@@ -99,6 +100,16 @@ export class BareNoteEditor {
 
   openSearch(): void {
     openSearchPanel(this.view);
+  }
+
+  openReplace(): void {
+    openSearchPanel(this.view);
+    // Focus the replace input field within the search panel
+    requestAnimationFrame(() => {
+      const panel = this.view.dom.querySelector('.cm-search');
+      const replaceField = panel?.querySelector<HTMLInputElement>('input[name="replace"]');
+      replaceField?.focus();
+    });
   }
 
   focus(): void {

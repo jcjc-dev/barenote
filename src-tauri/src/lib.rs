@@ -10,9 +10,9 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            let app_dir = app.path().app_data_dir().expect("Failed to resolve app data directory");
+            let app_dir = app.path().app_data_dir()
+                .map_err(|e| format!("Failed to resolve app data directory: {}", e))?;
             app.manage(AppState::new(app_dir));
             Ok(())
         })
@@ -27,6 +27,8 @@ pub fn run() {
             commands::get_tab_content,
             commands::update_tab_content,
             commands::append_delta,
+            commands::append_delta_batch,
+            commands::open_file,
             commands::get_config,
             commands::save_config,
             commands::set_window_theme,
@@ -35,5 +37,8 @@ pub fn run() {
             commands::delete_tab,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .unwrap_or_else(|e| {
+            eprintln!("Error while running tauri application: {}", e);
+            std::process::exit(1);
+        });
 }

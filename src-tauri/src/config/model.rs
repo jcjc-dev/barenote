@@ -77,13 +77,28 @@ impl Default for AppConfig {
     }
 }
 
+const VALID_THEMES: &[&str] = &["system", "light", "dark"];
+
 impl AppConfig {
+    /// Clamp and correct all config values to valid ranges.
+    pub fn validate(&mut self) {
+        self.editor.font_size = self.editor.font_size.clamp(8, 72);
+        self.editor.tab_size = self.editor.tab_size.clamp(1, 8);
+        self.snapshot_interval_edits = self.snapshot_interval_edits.clamp(1, 500);
+        self.snapshot_interval_ms = self.snapshot_interval_ms.clamp(1000, 60000);
+
+        if !VALID_THEMES.contains(&self.theme.as_str()) {
+            self.theme = "system".to_string();
+        }
+    }
+
     /// Load config from disk, merging with defaults for any missing fields
     pub fn load(app_dir: &PathBuf) -> Self {
         let path = app_dir.join("config.json");
         if path.exists() {
             if let Ok(content) = fs::read_to_string(&path) {
-                if let Ok(config) = serde_json::from_str::<AppConfig>(&content) {
+                if let Ok(mut config) = serde_json::from_str::<AppConfig>(&content) {
+                    config.validate();
                     return config;
                 }
             }
@@ -93,8 +108,10 @@ impl AppConfig {
 
     /// Save config to disk
     pub fn save(&self, app_dir: &PathBuf) -> std::io::Result<()> {
+        let mut config = self.clone();
+        config.validate();
         let path = app_dir.join("config.json");
-        let json = serde_json::to_string_pretty(self)
+        let json = serde_json::to_string_pretty(&config)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
         fs::write(&path, json)?;
         Ok(())
@@ -149,5 +166,84 @@ mod tests {
         assert_eq!(config.editor.tab_size, 2); // default filled in
         assert!(config.editor.word_wrap); // default filled in
         assert_eq!(config.snapshot_interval_edits, 50); // default filled in
+    }
+
+    #[test]
+    fn test_validate_clamps_font_size() {
+        let mut config = AppConfig::default();
+        config.editor.font_size = 0;
+        config.validate();
+        assert_eq!(config.editor.font_size, 8);
+
+        config.editor.font_size = 200;
+        config.validate();
+        assert_eq!(config.editor.font_size, 72);
+    }
+
+    #[test]
+    fn test_validate_clamps_tab_size() {
+        let mut config = AppConfig::default();
+        config.editor.tab_size = 0;
+        config.validate();
+        assert_eq!(config.editor.tab_size, 1);
+
+        config.editor.tab_size = 100;
+        config.validate();
+        assert_eq!(config.editor.tab_size, 8);
+    }
+
+    #[test]
+    fn test_validate_clamps_snapshot_intervals() {
+        let mut config = AppConfig::default();
+        config.snapshot_interval_edits = 0;
+        config.snapshot_interval_ms = 100;
+        config.validate();
+        assert_eq!(config.snapshot_interval_edits, 1);
+        assert_eq!(config.snapshot_interval_ms, 1000);
+
+        config.snapshot_interval_edits = 9999;
+        config.snapshot_interval_ms = 999999;
+        config.validate();
+        assert_eq!(config.snapshot_interval_edits, 500);
+        assert_eq!(config.snapshot_interval_ms, 60000);
+    }
+
+    #[test]
+    fn test_validate_resets_invalid_theme() {
+        let mut config = AppConfig::default();
+        config.theme = "neon".to_string();
+        config.validate();
+        assert_eq!(config.theme, "system");
+
+        config.theme = "dark".to_string();
+        config.validate();
+        assert_eq!(config.theme, "dark");
+    }
+
+    #[test]
+    fn test_load_validates_out_of_range_values() {
+        let tmp = TempDir::new().unwrap();
+        let bad = r#"{ "editor": { "font_size": 999, "tab_size": 0 }, "theme": "invalid", "snapshot_interval_edits": 0, "snapshot_interval_ms": 50 }"#;
+        fs::write(tmp.path().join("config.json"), bad).unwrap();
+
+        let config = AppConfig::load(&tmp.path().to_path_buf());
+        assert_eq!(config.editor.font_size, 72);
+        assert_eq!(config.editor.tab_size, 1);
+        assert_eq!(config.theme, "system");
+        assert_eq!(config.snapshot_interval_edits, 1);
+        assert_eq!(config.snapshot_interval_ms, 1000);
+    }
+
+    #[test]
+    fn test_save_validates_before_writing() {
+        let tmp = TempDir::new().unwrap();
+        let mut config = AppConfig::default();
+        config.editor.font_size = 999;
+        config.theme = "bogus".to_string();
+        config.save(&tmp.path().to_path_buf()).unwrap();
+
+        let loaded = AppConfig::load(&tmp.path().to_path_buf());
+        assert_eq!(loaded.editor.font_size, 72);
+        assert_eq!(loaded.theme, "system");
     }
 }

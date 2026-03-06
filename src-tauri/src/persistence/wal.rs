@@ -3,6 +3,9 @@ use std::path::PathBuf;
 use std::fs::{File, OpenOptions};
 use std::io::{Write, BufRead, BufReader};
 
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Delta {
     pub timestamp_ms: u64,
@@ -15,12 +18,30 @@ pub struct Delta {
 /// Calls fsync after write for durability.
 pub fn append_delta(tab_dir: &PathBuf, delta: &Delta) -> std::io::Result<()> {
     let wal_path = tab_dir.join("wal.log");
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&wal_path)?;
+    let mut opts = OpenOptions::new();
+    opts.create(true).append(true);
+    #[cfg(unix)]
+    opts.mode(0o600);
+    let mut file = opts.open(&wal_path)?;
     let line = serde_json::to_string(delta).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
     writeln!(file, "{}", line)?;
+    file.sync_all()?;
+    Ok(())
+}
+
+/// Append multiple deltas to the WAL file in a single batch with one fsync.
+pub fn append_deltas(tab_dir: &PathBuf, deltas: &[Delta]) -> std::io::Result<()> {
+    let wal_path = tab_dir.join("wal.log");
+    let mut opts = OpenOptions::new();
+    opts.create(true).append(true);
+    #[cfg(unix)]
+    opts.mode(0o600);
+    let mut file = opts.open(&wal_path)?;
+    for delta in deltas {
+        let line = serde_json::to_string(delta)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        writeln!(file, "{}", line)?;
+    }
     file.sync_all()?;
     Ok(())
 }
@@ -132,5 +153,57 @@ mod tests {
 
         let read = read_deltas(&dir).unwrap();
         assert!(read.is_empty());
+    }
+
+    #[test]
+    fn test_append_empty_delta() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path().to_path_buf();
+
+        let delta = Delta { timestamp_ms: 1000, position: 0, delete_count: 0, inserted: "".into() };
+        append_delta(&dir, &delta).unwrap();
+
+        let read = read_deltas(&dir).unwrap();
+        assert_eq!(read.len(), 1);
+        assert_eq!(read[0].inserted, "");
+        assert_eq!(read[0].delete_count, 0);
+    }
+
+    #[test]
+    fn test_append_large_delta() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path().to_path_buf();
+
+        let large_str = "x".repeat(1_000_000);
+        let delta = Delta { timestamp_ms: 1000, position: 0, delete_count: 0, inserted: large_str.clone() };
+        append_delta(&dir, &delta).unwrap();
+
+        let read = read_deltas(&dir).unwrap();
+        assert_eq!(read.len(), 1);
+        assert_eq!(read[0].inserted.len(), 1_000_000);
+        assert_eq!(read[0].inserted, large_str);
+    }
+
+    #[test]
+    fn test_read_deltas_from_nonexistent_file() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path().join("nonexistent_subdir");
+        // Directory doesn't exist, so wal.log won't exist
+        let deltas = read_deltas(&dir).unwrap();
+        assert!(deltas.is_empty());
+    }
+
+    #[test]
+    fn test_append_delta_special_characters() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path().to_path_buf();
+
+        let special = "line1\nline2\ttab\r\n🎉🚀 emoji \0 null byte 中文";
+        let delta = Delta { timestamp_ms: 42, position: 0, delete_count: 0, inserted: special.into() };
+        append_delta(&dir, &delta).unwrap();
+
+        let read = read_deltas(&dir).unwrap();
+        assert_eq!(read.len(), 1);
+        assert_eq!(read[0].inserted, special);
     }
 }

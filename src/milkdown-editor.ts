@@ -1,4 +1,4 @@
-import { Editor, rootCtx, defaultValueCtx, editorViewCtx, remarkStringifyOptionsCtx } from "@milkdown/kit/core";
+import { Editor, rootCtx, defaultValueCtx, editorViewCtx } from "@milkdown/kit/core";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
 import { history } from "@milkdown/kit/plugin/history";
@@ -7,6 +7,7 @@ import { clipboard } from "@milkdown/kit/plugin/clipboard";
 import { indent } from "@milkdown/kit/plugin/indent";
 import { trailing } from "@milkdown/kit/plugin/trailing";
 import { getMarkdown, replaceAll } from "@milkdown/kit/utils";
+import { markdownTableDetectPlugin } from "./markdown-table-input";
 import "@milkdown/prose/view/style/prosemirror.css";
 
 export type ChangeCallback = () => void;
@@ -36,17 +37,11 @@ export class MilkdownEditor {
         .config((ctx) => {
           ctx.set(rootCtx, this.wrapper);
           ctx.set(defaultValueCtx, content);
-          ctx.update(remarkStringifyOptionsCtx, (options) => ({
-            ...options,
-            handlers: {
-              ...options.handlers,
-              break: () => '\n',
-            },
-          }));
         })
         .use(listener)
         .use(commonmark)
         .use(gfm)
+        .use(markdownTableDetectPlugin)
         .use(history)
         .use(clipboard)
         .use(indent)
@@ -77,7 +72,28 @@ export class MilkdownEditor {
     if (!this.editor) return "";
     try {
       const md = this.editor.action(getMarkdown());
-      return md.replace(/<br\s*\/?>/g, '\n');
+      // Process line-by-line: keep <br> in table rows (they preserve cell structure),
+      // replace <br> with newline only outside tables.
+      const lines = md.split('\n');
+      const result: string[] = [];
+      let inTable = false;
+      for (const line of lines) {
+        const trimmed = line.trim();
+        const isTableRow = trimmed.startsWith('|') && trimmed.includes('|', 1);
+        if (isTableRow) {
+          inTable = true;
+          // Inside table: remove <br> tags entirely (they were just hard breaks in cells)
+          result.push(line.replace(/<br\s*\/?>/g, ' '));
+        } else if (inTable && trimmed === '') {
+          // Blank line after table: end of table
+          inTable = false;
+          result.push(line);
+        } else {
+          inTable = false;
+          result.push(line.replace(/<br\s*\/?>/g, '\n'));
+        }
+      }
+      return result.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd();
     } catch {
       return "";
     }
