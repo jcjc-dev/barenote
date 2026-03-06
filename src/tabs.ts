@@ -12,12 +12,203 @@ export class TabBar {
   private dragState: { tabId: string; startX: number; el: HTMLElement | null } | null = null;
   private dropIndicator: HTMLElement | null = null;
 
+  // Persistent DOM elements (created once in constructor)
+  private tabList: HTMLElement;
+  private newBtn: HTMLButtonElement;
+  private archiveBtn: HTMLButtonElement;
+
+  // Typed drag listener references for safe cleanup
+  private boundDragMove: ((e: MouseEvent) => void) | null = null;
+  private boundDragUp: ((e: MouseEvent) => void) | null = null;
+
   constructor(container: HTMLElement, callback: TabCallback) {
     this.container = container;
     this.callback = callback;
     this.container.classList.add("tab-bar");
+
+    this.tabList = document.createElement("div");
+    this.tabList.className = "tab-list";
+
+    this.newBtn = document.createElement("button");
+    this.newBtn.className = "tab-new";
+    this.newBtn.textContent = "+";
+    this.newBtn.title = "New tab";
+
+    this.archiveBtn = document.createElement("button");
+    this.archiveBtn.className = "tab-archive-btn";
+    this.archiveBtn.innerHTML = "📦";
+    this.archiveBtn.title = "Toggle Archive";
+
+    this.container.appendChild(this.tabList);
+    this.container.appendChild(this.newBtn);
+    this.container.appendChild(this.archiveBtn);
+
+    this.setupEventDelegation();
     this.render();
   }
+
+  /* ── Event delegation (attached once) ─────────────────────────── */
+
+  private setupEventDelegation(): void {
+    this.newBtn.addEventListener("click", () => this.callback("create"));
+    this.archiveBtn.addEventListener("click", () => this.callback("archive"));
+
+    this.tabList.addEventListener("mousedown", (e) => {
+      const target = e.target as HTMLElement;
+      if (target.classList.contains("tab-close")) return;
+      if (target.tagName === "INPUT") return;
+      const tabEl = target.closest("[data-tab-id]") as HTMLElement | null;
+      if (!tabEl) return;
+      this.dragState = { tabId: tabEl.dataset.tabId!, startX: e.clientX, el: null };
+      this.attachDragListeners();
+    });
+
+    this.tabList.addEventListener("click", (e) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT") return;
+
+      // Close button
+      if (target.classList.contains("tab-close")) {
+        const tabEl = target.closest("[data-tab-id]") as HTMLElement | null;
+        if (!tabEl) return;
+        const tab = this.tabs.find(t => t.id === tabEl.dataset.tabId);
+        if (tab) this.callback("close", tab);
+        return;
+      }
+
+      // Tab selection
+      const tabEl = target.closest("[data-tab-id]") as HTMLElement | null;
+      if (!tabEl) return;
+      const tabId = tabEl.dataset.tabId!;
+      if (this.activeTabId !== tabId) {
+        this.activeTabId = tabId;
+        this.render();
+        const tab = this.tabs.find(t => t.id === tabId);
+        if (tab) this.callback("select", tab);
+      }
+    });
+
+    this.tabList.addEventListener("dblclick", (e) => {
+      const target = e.target as HTMLElement;
+      if (!target.classList.contains("tab-title")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const tabEl = target.closest("[data-tab-id]") as HTMLElement | null;
+      if (!tabEl) return;
+      const tab = this.tabs.find(t => t.id === tabEl.dataset.tabId);
+      if (tab) this.startRename(tab, target);
+    });
+  }
+
+  /* ── Drag listeners (attached per-drag, properly cleaned up) ── */
+
+  private attachDragListeners(): void {
+    this.detachDragListeners();
+
+    this.boundDragMove = (e: MouseEvent) => {
+      if (!this.dragState) return;
+
+      const dx = Math.abs(e.clientX - this.dragState.startX);
+      if (dx < 5 && !this.dragState.el) return;
+
+      if (!this.dragState.el) {
+        const srcEl = this.tabList.querySelector(
+          `[data-tab-id="${this.dragState.tabId}"]`,
+        ) as HTMLElement;
+        if (srcEl) {
+          srcEl.classList.add("dragging");
+          this.dragState.el = srcEl;
+          document.body.style.userSelect = "none";
+          document.body.style.webkitUserSelect = "none";
+          document.body.style.cursor = "grabbing";
+        }
+      }
+
+      const tabItems = Array.from(
+        this.tabList.querySelectorAll(".tab-item"),
+      ) as HTMLElement[];
+      this.removeDropIndicator();
+
+      for (const item of tabItems) {
+        if (item.dataset.tabId === this.dragState.tabId) continue;
+        const rect = item.getBoundingClientRect();
+        const midX = rect.left + rect.width / 2;
+        if (e.clientX >= rect.left && e.clientX <= rect.right) {
+          this.showDropIndicator(item, e.clientX < midX ? "before" : "after");
+          break;
+        }
+      }
+    };
+
+    this.boundDragUp = (e: MouseEvent) => {
+      if (!this.dragState) {
+        this.detachDragListeners();
+        return;
+      }
+
+      const wasDragging = this.dragState.el !== null;
+
+      if (wasDragging) {
+        const tabItems = Array.from(
+          this.tabList.querySelectorAll(".tab-item"),
+        ) as HTMLElement[];
+        let targetIdx = -1;
+
+        for (let i = 0; i < tabItems.length; i++) {
+          const item = tabItems[i];
+          if (item.dataset.tabId === this.dragState.tabId) continue;
+          const rect = item.getBoundingClientRect();
+          const midX = rect.left + rect.width / 2;
+
+          if (e.clientX >= rect.left && e.clientX <= rect.right) {
+            const itemTabIdx = this.tabs.findIndex(
+              t => t.id === item.dataset.tabId,
+            );
+            targetIdx = e.clientX < midX ? itemTabIdx : itemTabIdx + 1;
+            break;
+          }
+        }
+
+        if (targetIdx >= 0) {
+          const fromIdx = this.tabs.findIndex(
+            t => t.id === this.dragState!.tabId,
+          );
+          if (fromIdx >= 0 && fromIdx !== targetIdx) {
+            const [moved] = this.tabs.splice(fromIdx, 1);
+            const adjustedIdx =
+              targetIdx > fromIdx ? targetIdx - 1 : targetIdx;
+            this.tabs.splice(adjustedIdx, 0, moved);
+            this.callback("reorder");
+          }
+        }
+
+        this.removeDropIndicator();
+        document.body.style.userSelect = "";
+        document.body.style.webkitUserSelect = "";
+        document.body.style.cursor = "";
+        this.render();
+      }
+
+      this.dragState = null;
+      this.detachDragListeners();
+    };
+
+    document.addEventListener("mousemove", this.boundDragMove);
+    document.addEventListener("mouseup", this.boundDragUp);
+  }
+
+  private detachDragListeners(): void {
+    if (this.boundDragMove) {
+      document.removeEventListener("mousemove", this.boundDragMove);
+      this.boundDragMove = null;
+    }
+    if (this.boundDragUp) {
+      document.removeEventListener("mouseup", this.boundDragUp);
+      this.boundDragUp = null;
+    }
+  }
+
+  /* ── Public API ────────────────────────────────────────────────── */
 
   setTabs(tabs: Tab[], activeId?: string): void {
     this.tabs = tabs;
@@ -75,178 +266,111 @@ export class TabBar {
     this.callback("select", tab);
   }
 
-  private render(): void {
+  destroy(): void {
+    this.detachDragListeners();
+    this.removeDropIndicator();
     this.container.innerHTML = "";
+  }
 
-    const tabList = document.createElement("div");
-    tabList.className = "tab-list";
+  /* ── Incremental render ────────────────────────────────────────── */
 
-    for (const tab of this.tabs) {
-      const tabEl = document.createElement("div");
-      tabEl.className = `tab-item${tab.id === this.activeTabId ? " active" : ""}`;
-      tabEl.dataset.tabId = tab.id;
-
-      const title = document.createElement("span");
-      title.className = "tab-title";
-      const isSettingsTab = tab.id === "__settings__";
-      if (!tab.file_path && !isSettingsTab) {
-        title.classList.add("unsaved");
-        title.textContent = "~ " + tab.title;
-      } else {
-        title.textContent = tab.title;
-      }
-      title.addEventListener("dblclick", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.startRename(tab, title);
-      });
-
-      const closeBtn = document.createElement("button");
-      closeBtn.className = "tab-close";
-      closeBtn.textContent = "×";
-      closeBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        this.callback("close", tab);
-      });
-
-      tabEl.appendChild(title);
-      tabEl.appendChild(closeBtn);
-
-      // Single click to select (with delay to not conflict with dblclick)
-      tabEl.addEventListener("mousedown", (e) => {
-        if ((e.target as HTMLElement).classList.contains("tab-close")) return;
-        if ((e.target as HTMLElement).tagName === "INPUT") return;
-        // Start potential drag
-        this.dragState = { tabId: tab.id, startX: e.clientX, el: null };
-      });
-
-      tabEl.addEventListener("click", (e) => {
-        if ((e.target as HTMLElement).classList.contains("tab-close")) return;
-        if ((e.target as HTMLElement).tagName === "INPUT") return;
-        if (this.activeTabId !== tab.id) {
-          this.activeTabId = tab.id;
-          this.render();
-          this.callback("select", tab);
-        }
-      });
-
-      tabList.appendChild(tabEl);
+  private render(): void {
+    const existingEls = new Map<string, HTMLElement>();
+    for (const el of Array.from(
+      this.tabList.querySelectorAll<HTMLElement>(".tab-item[data-tab-id]"),
+    )) {
+      existingEls.set(el.dataset.tabId!, el);
     }
 
-    // Global mouse handlers for drag
-    const onMouseMove = (e: MouseEvent) => {
-      if (!this.dragState) return;
+    const desiredIds = new Set(this.tabs.map(t => t.id));
 
-      const dx = Math.abs(e.clientX - this.dragState.startX);
-      if (dx < 5 && !this.dragState.el) return; // threshold before starting drag
+    // Remove tabs no longer in the model
+    for (const [id, el] of existingEls) {
+      if (!desiredIds.has(id)) {
+        el.remove();
+        existingEls.delete(id);
+      }
+    }
 
-      // Start visual drag
-      if (!this.dragState.el) {
-        const srcEl = tabList.querySelector(`[data-tab-id="${this.dragState.tabId}"]`) as HTMLElement;
-        if (srcEl) {
-          srcEl.classList.add("dragging");
-          this.dragState.el = srcEl;
-          document.body.style.userSelect = "none";
-          document.body.style.webkitUserSelect = "none";
-          document.body.style.cursor = "grabbing";
+    // Update or create tab elements, ensuring correct order
+    let prevSibling: HTMLElement | null = null;
+    for (const tab of this.tabs) {
+      let tabEl = existingEls.get(tab.id);
+
+      if (tabEl) {
+        this.updateTabElement(tabEl, tab);
+      } else {
+        tabEl = this.createTabElement(tab);
+      }
+
+      // Place after previous sibling (or at the start of the list)
+      const expectedNext: ChildNode | null = prevSibling
+        ? prevSibling.nextSibling
+        : this.tabList.firstChild;
+      if (tabEl !== expectedNext) {
+        if (prevSibling) {
+          prevSibling.after(tabEl);
+        } else {
+          this.tabList.prepend(tabEl);
         }
       }
 
-      // Find drop target
-      const tabItems = Array.from(tabList.querySelectorAll(".tab-item")) as HTMLElement[];
-      this.removeDropIndicator();
-
-      for (const item of tabItems) {
-        if (item.dataset.tabId === this.dragState.tabId) continue;
-        const rect = item.getBoundingClientRect();
-        const midX = rect.left + rect.width / 2;
-
-        if (e.clientX >= rect.left && e.clientX <= rect.right) {
-          if (e.clientX < midX) {
-            this.showDropIndicator(item, "before");
-          } else {
-            this.showDropIndicator(item, "after");
-          }
-          break;
-        }
-      }
-    };
-
-    const onMouseUp = (e: MouseEvent) => {
-      if (!this.dragState) return;
-
-      const wasDragging = this.dragState.el !== null;
-
-      if (wasDragging) {
-        // Find where to drop
-        const tabItems = Array.from(tabList.querySelectorAll(".tab-item")) as HTMLElement[];
-        let targetIdx = -1;
-
-        for (let i = 0; i < tabItems.length; i++) {
-          const item = tabItems[i];
-          if (item.dataset.tabId === this.dragState.tabId) continue;
-          const rect = item.getBoundingClientRect();
-          const midX = rect.left + rect.width / 2;
-
-          if (e.clientX >= rect.left && e.clientX <= rect.right) {
-            const itemTabIdx = this.tabs.findIndex(t => t.id === item.dataset.tabId);
-            if (e.clientX < midX) {
-              targetIdx = itemTabIdx;
-            } else {
-              targetIdx = itemTabIdx + 1;
-            }
-            break;
-          }
-        }
-
-        if (targetIdx >= 0) {
-          const fromIdx = this.tabs.findIndex(t => t.id === this.dragState!.tabId);
-          if (fromIdx >= 0 && fromIdx !== targetIdx) {
-            const [moved] = this.tabs.splice(fromIdx, 1);
-            // Adjust target index after removal
-            const adjustedIdx = targetIdx > fromIdx ? targetIdx - 1 : targetIdx;
-            this.tabs.splice(adjustedIdx, 0, moved);
-            this.callback("reorder");
-          }
-        }
-
-        this.removeDropIndicator();
-        document.body.style.userSelect = "";
-        document.body.style.webkitUserSelect = "";
-        document.body.style.cursor = "";
-        this.render();
-      }
-
-      this.dragState = null;
-    };
-
-    document.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("mouseup", onMouseUp, { once: true });
-
-    // Clean up listeners when re-rendering (store reference for cleanup)
-    const oldCleanup = (this.container as any)._dragCleanup;
-    if (oldCleanup) oldCleanup();
-    (this.container as any)._dragCleanup = () => {
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
-    };
-
-    const newBtn = document.createElement("button");
-    newBtn.className = "tab-new";
-    newBtn.textContent = "+";
-    newBtn.title = "New tab";
-    newBtn.addEventListener("click", () => this.callback("create"));
-
-    const archiveBtn = document.createElement("button");
-    archiveBtn.className = "tab-archive-btn";
-    archiveBtn.innerHTML = "📦";
-    archiveBtn.title = "Toggle Archive";
-    archiveBtn.addEventListener("click", () => this.callback("archive" as TabAction));
-
-    this.container.appendChild(tabList);
-    this.container.appendChild(newBtn);
-    this.container.appendChild(archiveBtn);
+      prevSibling = tabEl;
+    }
   }
+
+  private createTabElement(tab: Tab): HTMLElement {
+    const tabEl = document.createElement("div");
+    tabEl.className = `tab-item${tab.id === this.activeTabId ? " active" : ""}`;
+    tabEl.dataset.tabId = tab.id;
+
+    const title = document.createElement("span");
+    title.className = "tab-title";
+    const isSettingsTab = tab.id === "__settings__";
+    if (!tab.file_path && !isSettingsTab) {
+      title.classList.add("unsaved");
+      title.textContent = "~ " + tab.title;
+    } else {
+      title.textContent = tab.title;
+    }
+
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "tab-close";
+    closeBtn.textContent = "×";
+
+    tabEl.appendChild(title);
+    tabEl.appendChild(closeBtn);
+    return tabEl;
+  }
+
+  private updateTabElement(tabEl: HTMLElement, tab: Tab): void {
+    tabEl.classList.toggle("active", tab.id === this.activeTabId);
+
+    const isSettingsTab = tab.id === "__settings__";
+    const isUnsaved = !tab.file_path && !isSettingsTab;
+    const expectedText = isUnsaved ? "~ " + tab.title : tab.title;
+
+    let titleEl = tabEl.querySelector(".tab-title") as HTMLElement | null;
+
+    if (!titleEl) {
+      // Title span was replaced by rename input — recreate it
+      titleEl = document.createElement("span");
+      titleEl.className = "tab-title";
+      const inputEl = tabEl.querySelector(".tab-rename-input");
+      if (inputEl) {
+        inputEl.replaceWith(titleEl);
+      } else {
+        tabEl.prepend(titleEl);
+      }
+    }
+
+    if (titleEl.textContent !== expectedText) {
+      titleEl.textContent = expectedText;
+    }
+    titleEl.classList.toggle("unsaved", isUnsaved);
+  }
+
+  /* ── Helpers ───────────────────────────────────────────────────── */
 
   private showDropIndicator(target: HTMLElement, position: "before" | "after"): void {
     this.removeDropIndicator();

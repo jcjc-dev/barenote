@@ -64,3 +64,21 @@ export async function reorderTabs(order: string[]): Promise<void> {
 export async function deleteTab(id: string): Promise<void> {
   return invoke("delete_tab", { id });
 }
+
+export async function appendDeltaBatch(
+  id: string,
+  deltas: { position: number; deleteCount: number; inserted: string }[]
+): Promise<void> {
+  return invoke("append_delta_batch", {
+    id,
+    deltas: deltas.map((d) => ({
+      position: d.position,
+      delete_count: d.deleteCount,
+      inserted: d.inserted,
+    })),
+  });
+}
+
+export async function openFile(path: string): Promise<string> {
+  return invoke<string>("open_file", { path });
+}
