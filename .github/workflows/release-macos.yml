@@ -1,0 +1,215 @@
+name: Release macOS (App Store)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 0.1.0)"
+        required: true
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-sign:
+    name: Build, Sign & Upload to App Store
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Set version
+        run: |
+          # Update version in tauri.conf.json
+          cd src-tauri
+          sed -i '' 's/"version": ".*"/"version": "${{ inputs.version }}"/' tauri.conf.json
+
+      # Import Apple certificates
+      - name: Import Mac App Distribution certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          CERTIFICATE_PATH=$RUNNER_TEMP/app_certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          # Persist keychain password for subsequent steps
+          echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
+
+          echo -n "$APPLE_CERTIFICATE" | base64 --decode -o $CERTIFICATE_PATH
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          security import $CERTIFICATE_PATH -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+      - name: Import Mac Installer Distribution certificate
+        env:
+          APPLE_INSTALLER_CERTIFICATE: ${{ secrets.APPLE_INSTALLER_CERTIFICATE }}
+          APPLE_INSTALLER_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_INSTALLER_CERTIFICATE_PASSWORD }}
+        run: |
+          CERTIFICATE_PATH=$RUNNER_TEMP/installer_certificate.p12
+
+          echo -n "$APPLE_INSTALLER_CERTIFICATE" | base64 --decode -o $CERTIFICATE_PATH
+
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import $CERTIFICATE_PATH -P "$APPLE_INSTALLER_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+      # Install provisioning profile
+      - name: Install provisioning profile
+        env:
+          APPLE_PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
+        run: |
+          PP_PATH=$RUNNER_TEMP/barenote.provisionprofile
+          echo -n "$APPLE_PROVISIONING_PROFILE" | base64 --decode -o $PP_PATH
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      # Build universal binary
+      - name: Build Tauri app (x86_64)
+        run: npx tauri build --target x86_64-apple-darwin --bundles app
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+
+      - name: Build Tauri app (aarch64)
+        run: npx tauri build --target aarch64-apple-darwin --bundles app
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+
+      - name: Create universal binary
+        run: |
+          mkdir -p src-tauri/target/universal-apple-darwin/release/bundle/macos
+
+          # Create universal binary using lipo
+          APP_NAME="BareNote"
+          ARM_APP="src-tauri/target/aarch64-apple-darwin/release/bundle/macos/${APP_NAME}.app"
+          X86_APP="src-tauri/target/x86_64-apple-darwin/release/bundle/macos/${APP_NAME}.app"
+          UNIVERSAL_APP="src-tauri/target/universal-apple-darwin/release/bundle/macos/${APP_NAME}.app"
+
+          # Copy the ARM app as base
+          cp -R "$ARM_APP" "$UNIVERSAL_APP"
+
+          # Create universal binary
+          lipo -create \
+            "$ARM_APP/Contents/MacOS/$APP_NAME" \
+            "$X86_APP/Contents/MacOS/$APP_NAME" \
+            -output "$UNIVERSAL_APP/Contents/MacOS/$APP_NAME"
+
+      # Re-sign for App Store with entitlements
+      - name: Re-sign for App Store
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          APP_NAME="BareNote"
+          UNIVERSAL_APP="src-tauri/target/universal-apple-darwin/release/bundle/macos/${APP_NAME}.app"
+          ENTITLEMENTS="src-tauri/entitlements/Entitlements.plist"
+          CHILD_ENTITLEMENTS="src-tauri/entitlements/Entitlements.child.plist"
+
+          # Embed provisioning profile
+          PP_PATH=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.provisionprofile | head -1)
+          cp "$PP_PATH" "$UNIVERSAL_APP/Contents/embedded.provisionprofile"
+
+          # Re-sign all nested frameworks/helpers with child entitlements
+          find "$UNIVERSAL_APP/Contents/Frameworks" -type f -perm +111 -exec \
+            codesign --force --options runtime --sign "$APPLE_SIGNING_IDENTITY" \
+            --entitlements "$CHILD_ENTITLEMENTS" {} \; 2>/dev/null || true
+
+          find "$UNIVERSAL_APP/Contents/Frameworks" -name "*.dylib" -exec \
+            codesign --force --options runtime --sign "$APPLE_SIGNING_IDENTITY" \
+            --entitlements "$CHILD_ENTITLEMENTS" {} \; 2>/dev/null || true
+
+          find "$UNIVERSAL_APP/Contents/Frameworks" -name "*.framework" -exec \
+            codesign --force --options runtime --sign "$APPLE_SIGNING_IDENTITY" \
+            --entitlements "$CHILD_ENTITLEMENTS" {} \; 2>/dev/null || true
+
+          # Sign the main app with full entitlements
+          codesign --force --options runtime --sign "$APPLE_SIGNING_IDENTITY" \
+            --entitlements "$ENTITLEMENTS" "$UNIVERSAL_APP"
+
+          # Verify signature
+          codesign --verify --deep --strict "$UNIVERSAL_APP"
+
+      # Create .pkg for App Store
+      - name: Create App Store package (.pkg)
+        env:
+          APPLE_INSTALLER_SIGNING_IDENTITY: ${{ secrets.APPLE_INSTALLER_SIGNING_IDENTITY }}
+        run: |
+          APP_NAME="BareNote"
+          UNIVERSAL_APP="src-tauri/target/universal-apple-darwin/release/bundle/macos/${APP_NAME}.app"
+          PKG_PATH="src-tauri/target/${APP_NAME}-${{ inputs.version }}.pkg"
+
+          productbuild \
+            --sign "$APPLE_INSTALLER_SIGNING_IDENTITY" \
+            --component "$UNIVERSAL_APP" /Applications \
+            "$PKG_PATH"
+
+          # Verify the package
+          pkgutil --check-signature "$PKG_PATH"
+
+      # Upload to App Store Connect
+      - name: Upload to App Store Connect
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          APP_NAME="BareNote"
+          PKG_PATH="src-tauri/target/${APP_NAME}-${{ inputs.version }}.pkg"
+
+          # Write API key to file
+          mkdir -p ~/private_keys
+          echo -n "$APPLE_API_KEY" | base64 --decode -o ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8
+
+          xcrun altool --upload-app \
+            --type macos \
+            --file "$PKG_PATH" \
+            --apiKey "$APPLE_API_KEY_ID" \
+            --apiIssuer "$APPLE_API_ISSUER"
+
+      # Upload artifact as backup
+      - name: Upload .pkg artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BareNote-macOS-${{ inputs.version }}
+          path: src-tauri/target/BareNote-${{ inputs.version }}.pkg
+          retention-days: 30
+
+      # Cleanup
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
+          rm -f $RUNNER_TEMP/*.p12
+          rm -f $RUNNER_TEMP/*.provisionprofile
+          rm -rf ~/private_keys

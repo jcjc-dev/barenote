@@ -1,0 +1,35 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="BareNote icon">
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="36" fill="#1b2227"/>
+
+  <!-- Stacked frames -->
+  <g transform="translate(256 256)">
+
+    <!-- rotated back square -->
+    <rect x="-125" y="-125" width="250" height="250"
+          fill="none"
+          stroke="#1f6d73"
+          stroke-width="16"
+          transform="rotate(30)" />
+
+    <!-- front square (0 degrees) -->
+    <rect x="-125" y="-125" width="250" height="250"
+          fill="none"
+          stroke="#1f6d73"
+          stroke-width="16" />
+
+  </g>
+
+  <!-- Center B -->
+  <text x="256"
+        y="318"
+        text-anchor="middle"
+        font-family="Inter, Avenir Next, Helvetica, Arial, sans-serif"
+        font-size="200"
+        font-weight="700"
+        fill="#d4a847">
+    B
+  </text>
+
+</svg>
