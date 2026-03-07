@@ -1,10 +1,18 @@
 name: Release macOS (App Store)
 
+# SECONDARY workflow — run this manually after "Release (GitHub)" has successfully
+# published a GitHub Release for the same version and you are ready for App Store review.
+#
+# Requires a separate set of certificates from the GitHub Release workflow:
+#   - "3rd Party Mac Developer Application" (not "Developer ID Application")
+#   - "3rd Party Mac Developer Installer"
+#   - A Mac App Store provisioning profile for com.barenote.app
+
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version (e.g. 0.1.0)"
+        description: "Version to submit to App Store (must match a published GitHub Release, e.g. 0.1.0)"
         required: true
         type: string
 

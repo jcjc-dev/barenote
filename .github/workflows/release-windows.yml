@@ -1,10 +1,15 @@
 name: Release Windows (Store)
 
+# SECONDARY workflow — run this manually after "Release (GitHub)" has successfully
+# published a GitHub Release for the same version and you are ready for Windows Store review.
+#
+# Builds an MSIX package for submission to Microsoft Partner Center (Windows Store).
+
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version (e.g. 0.1.0)"
+        description: "Version to submit to Windows Store (must match a published GitHub Release, e.g. 0.1.0)"
         required: true
         type: string
 
