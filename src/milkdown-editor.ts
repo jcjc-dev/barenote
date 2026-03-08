@@ -1,14 +1,14 @@
-import { Editor, rootCtx, defaultValueCtx, editorViewCtx } from "@milkdown/kit/core";
-import { commonmark } from "@milkdown/kit/preset/commonmark";
-import { gfm } from "@milkdown/kit/preset/gfm";
-import { history } from "@milkdown/kit/plugin/history";
-import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
-import { clipboard } from "@milkdown/kit/plugin/clipboard";
-import { indent } from "@milkdown/kit/plugin/indent";
-import { trailing } from "@milkdown/kit/plugin/trailing";
-import { getMarkdown, replaceAll } from "@milkdown/kit/utils";
-import { markdownTableDetectPlugin } from "./markdown-table-input";
-import "@milkdown/prose/view/style/prosemirror.css";
+import { Editor, rootCtx, defaultValueCtx, editorViewCtx } from '@milkdown/kit/core';
+import { commonmark } from '@milkdown/kit/preset/commonmark';
+import { gfm } from '@milkdown/kit/preset/gfm';
+import { history } from '@milkdown/kit/plugin/history';
+import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
+import { clipboard } from '@milkdown/kit/plugin/clipboard';
+import { indent } from '@milkdown/kit/plugin/indent';
+import { trailing } from '@milkdown/kit/plugin/trailing';
+import { getMarkdown, replaceAll } from '@milkdown/kit/utils';
+import { markdownTableDetectPlugin } from './markdown-table-input';
+import '@milkdown/prose/view/style/prosemirror.css';
 
 export type ChangeCallback = () => void;
 
@@ -23,8 +23,8 @@ export class MilkdownEditor {
     this.container = container;
     this.onChange = onChange;
 
-    this.wrapper = document.createElement("div");
-    this.wrapper.classList.add("milkdown-container");
+    this.wrapper = document.createElement('div');
+    this.wrapper.classList.add('milkdown-container');
     this.container.appendChild(this.wrapper);
 
     this.ready = this.initEditor(content);
@@ -32,7 +32,7 @@ export class MilkdownEditor {
 
   private async initEditor(content: string): Promise<void> {
     try {
-      console.log("[Milkdown] initEditor called, content length:", content.length);
+      console.log('[Milkdown] initEditor called, content length:', content.length);
       this.editor = await Editor.make()
         .config((ctx) => {
           ctx.set(rootCtx, this.wrapper);
@@ -58,9 +58,9 @@ export class MilkdownEditor {
         });
       }
 
-      console.log("[Milkdown] Editor created. DOM:", this.wrapper.innerHTML.substring(0, 300));
+      console.log('[Milkdown] Editor created. DOM:', this.wrapper.innerHTML.substring(0, 300));
     } catch (e) {
-      console.error("[Milkdown] init FAILED:", e);
+      console.error('[Milkdown] init FAILED:', e);
     }
   }
 
@@ -69,7 +69,7 @@ export class MilkdownEditor {
   }
 
   getContent(): string {
-    if (!this.editor) return "";
+    if (!this.editor) return '';
     try {
       const md = this.editor.action(getMarkdown());
       // Process line-by-line: keep <br> in table rows (they preserve cell structure),
@@ -93,9 +93,12 @@ export class MilkdownEditor {
           result.push(line.replace(/<br\s*\/?>/g, '\n'));
         }
       }
-      return result.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd();
+      return result
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trimEnd();
     } catch {
-      return "";
+      return '';
     }
   }
 
@@ -105,7 +108,7 @@ export class MilkdownEditor {
     try {
       this.editor.action(replaceAll(text));
     } catch (e) {
-      console.error("Milkdown setContent failed:", e);
+      console.error('Milkdown setContent failed:', e);
     }
   }
 
@@ -123,12 +126,12 @@ export class MilkdownEditor {
   }
 
   show(): void {
-    this.wrapper.style.display = "flex";
+    this.wrapper.style.display = 'flex';
     this.container.classList.add('mode-wysiwyg');
   }
 
   hide(): void {
-    this.wrapper.style.display = "none";
+    this.wrapper.style.display = 'none';
     this.container.classList.remove('mode-wysiwyg');
   }
 

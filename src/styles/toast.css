@@ -16,7 +16,9 @@
   color: #fff;
   opacity: 0;
   transform: translateY(8px);
-  transition: opacity 0.2s, transform 0.2s;
+  transition:
+    opacity 0.2s,
+    transform 0.2s;
   pointer-events: auto;
   max-width: 360px;
   word-wrap: break-word;
@@ -27,6 +29,12 @@
   transform: translateY(0);
 }
 
-.toast-error { background: #dc3545; }
-.toast-info { background: #495057; }
-.toast-success { background: #28a745; }
+.toast-error {
+  background: #dc3545;
+}
+.toast-info {
+  background: #495057;
+}
+.toast-success {
+  background: #28a745;
+}

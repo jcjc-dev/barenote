@@ -1,27 +1,26 @@
-import type { AppConfig } from "./types";
+import type { AppConfig } from './types';
 
 export type ActionHandler = () => void;
 
-const isMac = typeof navigator !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+const isMac =
+  typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
 function normalizeShortcut(shortcut: string): string {
-  return shortcut
-    .replace("CmdOrCtrl", isMac ? "Meta" : "Ctrl")
-    .replace("Cmd", "Meta");
+  return shortcut.replace('CmdOrCtrl', isMac ? 'Meta' : 'Ctrl').replace('Cmd', 'Meta');
 }
 
 function matchesShortcut(e: KeyboardEvent, shortcut: string): boolean {
-  const parts = normalizeShortcut(shortcut).toLowerCase().split("+");
+  const parts = normalizeShortcut(shortcut).toLowerCase().split('+');
   const key = parts[parts.length - 1];
-  const needCtrl = parts.includes("ctrl");
-  const needMeta = parts.includes("meta");
-  const needShift = parts.includes("shift");
-  const needAlt = parts.includes("alt");
+  const needCtrl = parts.includes('ctrl');
+  const needMeta = parts.includes('meta');
+  const needShift = parts.includes('shift');
+  const needAlt = parts.includes('alt');
 
   const eventKey = e.key.toLowerCase();
-  const bracketMap: Record<string, string> = { "[": "bracketleft", "]": "bracketright" };
-  const keyMatches = eventKey === key
-    || (key in bracketMap && e.code.toLowerCase() === bracketMap[key]);
+  const bracketMap: Record<string, string> = { '[': 'bracketleft', ']': 'bracketright' };
+  const keyMatches =
+    eventKey === key || (key in bracketMap && e.code.toLowerCase() === bracketMap[key]);
 
   return (
     keyMatches &&
@@ -37,7 +36,7 @@ export class KeybindingManager {
   private config: Record<string, string> = {};
 
   constructor() {
-    document.addEventListener("keydown", (e) => this.handleKeyDown(e));
+    document.addEventListener('keydown', (e) => this.handleKeyDown(e));
   }
 
   loadFromConfig(config: AppConfig): void {

@@ -56,7 +56,7 @@ impl TabManager {
 
         let meta_path = tab_dir.join("meta.json");
         let json = serde_json::to_string_pretty(&tab)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            .map_err(std::io::Error::other)?;
         fs::write(&meta_path, json)?;
 
         self.tab_order.push(tab.id.clone());
@@ -177,7 +177,7 @@ impl TabManager {
             selected_tab: self.selected_tab.clone(),
         };
         let json = serde_json::to_string_pretty(&session)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            .map_err(std::io::Error::other)?;
 
         let session_path = self.app_dir.join("session.json");
         let tmp_path = self.app_dir.join("session.json.tmp");
@@ -220,7 +220,7 @@ impl TabManager {
             let meta_path = tab_dir.join("meta.json");
             let tmp_path = tab_dir.join("meta.json.tmp");
             let json = serde_json::to_string_pretty(tab)
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+                .map_err(std::io::Error::other)?;
 
             let mut file = fs::File::create(&tmp_path)?;
             std::io::Write::write_all(&mut file, json.as_bytes())?;

@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use std::path::PathBuf;
+use std::path::Path;
 use std::fs::{File, OpenOptions};
 use std::io::{Write, BufRead, BufReader};
 
@@ -16,21 +16,21 @@ pub struct Delta {
 
 /// Append a delta to the WAL file for a tab. Each delta is a JSON line followed by newline.
 /// Calls fsync after write for durability.
-pub fn append_delta(tab_dir: &PathBuf, delta: &Delta) -> std::io::Result<()> {
+pub fn append_delta(tab_dir: &Path, delta: &Delta) -> std::io::Result<()> {
     let wal_path = tab_dir.join("wal.log");
     let mut opts = OpenOptions::new();
     opts.create(true).append(true);
     #[cfg(unix)]
     opts.mode(0o600);
     let mut file = opts.open(&wal_path)?;
-    let line = serde_json::to_string(delta).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    let line = serde_json::to_string(delta).map_err(std::io::Error::other)?;
     writeln!(file, "{}", line)?;
     file.sync_all()?;
     Ok(())
 }
 
 /// Append multiple deltas to the WAL file in a single batch with one fsync.
-pub fn append_deltas(tab_dir: &PathBuf, deltas: &[Delta]) -> std::io::Result<()> {
+pub fn append_deltas(tab_dir: &Path, deltas: &[Delta]) -> std::io::Result<()> {
     let wal_path = tab_dir.join("wal.log");
     let mut opts = OpenOptions::new();
     opts.create(true).append(true);
@@ -39,7 +39,7 @@ pub fn append_deltas(tab_dir: &PathBuf, deltas: &[Delta]) -> std::io::Result<()>
     let mut file = opts.open(&wal_path)?;
     for delta in deltas {
         let line = serde_json::to_string(delta)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            .map_err(std::io::Error::other)?;
         writeln!(file, "{}", line)?;
     }
     file.sync_all()?;
@@ -47,7 +47,7 @@ pub fn append_deltas(tab_dir: &PathBuf, deltas: &[Delta]) -> std::io::Result<()>
 }
 
 /// Read all deltas from the WAL file. Skips corrupt/incomplete trailing entries.
-pub fn read_deltas(tab_dir: &PathBuf) -> std::io::Result<Vec<Delta>> {
+pub fn read_deltas(tab_dir: &Path) -> std::io::Result<Vec<Delta>> {
     let wal_path = tab_dir.join("wal.log");
     if !wal_path.exists() {
         return Ok(Vec::new());
@@ -74,7 +74,7 @@ pub fn read_deltas(tab_dir: &PathBuf) -> std::io::Result<Vec<Delta>> {
 }
 
 /// Truncate (clear) the WAL file after a successful snapshot
-pub fn truncate_wal(tab_dir: &PathBuf) -> std::io::Result<()> {
+pub fn truncate_wal(tab_dir: &Path) -> std::io::Result<()> {
     let wal_path = tab_dir.join("wal.log");
     if wal_path.exists() {
         File::create(&wal_path)?; // Truncates to zero length

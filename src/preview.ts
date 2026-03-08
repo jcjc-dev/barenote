@@ -1,5 +1,5 @@
-import DOMPurify from "dompurify";
-import { marked } from "marked";
+import DOMPurify from 'dompurify';
+import { marked } from 'marked';
 
 export class MarkdownPreview {
   private container: HTMLElement;
@@ -8,13 +8,13 @@ export class MarkdownPreview {
 
   constructor(container: HTMLElement) {
     this.container = container;
-    this.container.classList.add("preview-panel");
-    this.container.style.display = "none";
+    this.container.classList.add('preview-panel');
+    this.container.style.display = 'none';
   }
 
   toggle(): boolean {
     this.visible = !this.visible;
-    this.container.style.display = this.visible ? "flex" : "none";
+    this.container.style.display = this.visible ? 'flex' : 'none';
     return this.visible;
   }
 

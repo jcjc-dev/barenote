@@ -70,7 +70,10 @@ describe('ipc', () => {
   it('updateTabContent calls invoke with correct args', async () => {
     mockInvoke.mockResolvedValue(undefined);
     await ipc.updateTabContent('1', 'new content');
-    expect(mockInvoke).toHaveBeenCalledWith('update_tab_content', { id: '1', content: 'new content' });
+    expect(mockInvoke).toHaveBeenCalledWith('update_tab_content', {
+      id: '1',
+      content: 'new content',
+    });
   });
 
   it('appendDelta converts deleteCount to snake_case', async () => {

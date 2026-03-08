@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 use std::fs::{self, File};
 use std::io::Write;
 
@@ -6,7 +6,7 @@ use std::io::Write;
 use std::os::unix::fs::OpenOptionsExt;
 
 /// Write content atomically: write to .tmp, fsync, rename to final path
-pub fn write_snapshot(tab_dir: &PathBuf, content: &str) -> std::io::Result<()> {
+pub fn write_snapshot(tab_dir: &Path, content: &str) -> std::io::Result<()> {
     let final_path = tab_dir.join("content.txt");
     let tmp_path = tab_dir.join("content.txt.tmp");
 
@@ -34,7 +34,7 @@ pub fn write_snapshot(tab_dir: &PathBuf, content: &str) -> std::io::Result<()> {
 }
 
 /// Read the latest snapshot content, if it exists
-pub fn read_snapshot(tab_dir: &PathBuf) -> std::io::Result<Option<String>> {
+pub fn read_snapshot(tab_dir: &Path) -> std::io::Result<Option<String>> {
     let path = tab_dir.join("content.txt");
     if path.exists() {
         let content = fs::read_to_string(&path)?;

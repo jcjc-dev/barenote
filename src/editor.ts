@@ -1,9 +1,31 @@
-import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection, highlightSpecialChars, rectangularSelection, crosshairCursor, highlightActiveLineGutter } from "@codemirror/view";
-import { EditorState, type Extension } from "@codemirror/state";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
-import { search, searchKeymap, highlightSelectionMatches, openSearchPanel } from "@codemirror/search";
-import { bracketMatching, indentOnInput, syntaxHighlighting, defaultHighlightStyle, foldGutter, foldKeymap } from "@codemirror/language";
-import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
+import {
+  EditorView,
+  keymap,
+  lineNumbers,
+  highlightActiveLine,
+  drawSelection,
+  highlightSpecialChars,
+  rectangularSelection,
+  crosshairCursor,
+  highlightActiveLineGutter,
+} from '@codemirror/view';
+import { EditorState, type Extension } from '@codemirror/state';
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import {
+  search,
+  searchKeymap,
+  highlightSelectionMatches,
+  openSearchPanel,
+} from '@codemirror/search';
+import {
+  bracketMatching,
+  indentOnInput,
+  syntaxHighlighting,
+  defaultHighlightStyle,
+  foldGutter,
+  foldKeymap,
+} from '@codemirror/language';
+import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 
 export type ChangeCallback = (changes: { fromA: number; toA: number; inserted: string }[]) => void;
 
@@ -11,7 +33,7 @@ export class BareNoteEditor {
   private view: EditorView;
   private onChange: ChangeCallback | null = null;
 
-  constructor(container: HTMLElement, content: string = "", onChange?: ChangeCallback) {
+  constructor(container: HTMLElement, content: string = '', onChange?: ChangeCallback) {
     this.onChange = onChange || null;
 
     const updateListener = EditorView.updateListener.of((update) => {
@@ -51,34 +73,34 @@ export class BareNoteEditor {
       ]),
       updateListener,
       EditorView.theme({
-        "&": {
-          height: "100%",
-          fontSize: "14px",
+        '&': {
+          height: '100%',
+          fontSize: '14px',
         },
-        ".cm-scroller": {
-          overflow: "auto",
+        '.cm-scroller': {
+          overflow: 'auto',
           fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, monospace",
         },
-        ".cm-content": {
-          caretColor: "var(--editor-caret)",
+        '.cm-content': {
+          caretColor: 'var(--editor-caret)',
         },
-        ".cm-activeLine": {
-          backgroundColor: "var(--editor-active-line)",
+        '.cm-activeLine': {
+          backgroundColor: 'var(--editor-active-line)',
         },
-        ".cm-gutters": {
-          backgroundColor: "var(--editor-gutter)",
-          color: "var(--text-secondary)",
-          border: "none",
+        '.cm-gutters': {
+          backgroundColor: 'var(--editor-gutter)',
+          color: 'var(--text-secondary)',
+          border: 'none',
         },
-        ".cm-activeLineGutter": {
-          backgroundColor: "var(--editor-active-line)",
+        '.cm-activeLineGutter': {
+          backgroundColor: 'var(--editor-active-line)',
         },
       }),
       EditorView.baseTheme({
-        "&.cm-editor": {
-          backgroundColor: "var(--editor-bg)",
-          color: "var(--text-primary)",
-        }
+        '&.cm-editor': {
+          backgroundColor: 'var(--editor-bg)',
+          color: 'var(--text-primary)',
+        },
       }),
     ];
 
