@@ -200,6 +200,7 @@ jobs:
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
       TAG: ${{ needs.prepare.outputs.tag }}
+      HAS_WINDOWS_CERT: ${{ secrets.WINDOWS_CERTIFICATE != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -228,7 +229,7 @@ jobs:
         run: npx tauri build --bundles nsis
 
       - name: Sign installer
-        if: ${{ secrets.WINDOWS_CERTIFICATE != '' }}
+        if: ${{ env.HAS_WINDOWS_CERT == 'true' }}
         shell: pwsh
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
