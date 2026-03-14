@@ -55,6 +55,7 @@ jobs:
     name: Build macOS (DMG)
     needs: prepare
     runs-on: macos-latest
+    environment: Prod
     timeout-minutes: 90
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
