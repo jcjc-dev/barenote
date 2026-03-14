@@ -105,6 +105,10 @@ jobs:
             -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security list-keychain -d user -s $KEYCHAIN_PATH
 
+          echo "::group::Verify certificate"
+          security find-identity -v -p codesigning $KEYCHAIN_PATH
+          echo "::endgroup::"
+
       - name: Build aarch64
         run: npx tauri build --target aarch64-apple-darwin --bundles app
         env:
@@ -131,15 +135,31 @@ jobs:
         env:
           SIGNING_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_SIGNING_IDENTITY }}
         run: |
+          # Find the actual main binary name (may differ in case from APP_NAME)
+          MAIN_BIN=$(ls "$UNIVERSAL_APP/Contents/MacOS/" | head -1)
+          echo "Main binary: $MAIN_BIN"
+
+          # Sign all nested dylibs and frameworks first (inside-out)
           find "$UNIVERSAL_APP" -type f \( -name "*.dylib" -o -name "*.so" \) -exec \
-            codesign --force --options runtime --sign "$SIGNING_IDENTITY" {} \;
+            codesign --force --options runtime --timestamp --sign "$SIGNING_IDENTITY" {} \;
           find "$UNIVERSAL_APP/Contents/Frameworks" -type d -name "*.framework" -exec \
-            codesign --force --options runtime --sign "$SIGNING_IDENTITY" {} \; 2>/dev/null || true
-          codesign --force --options runtime \
+            codesign --force --options runtime --timestamp --sign "$SIGNING_IDENTITY" {} \; 2>/dev/null || true
+
+          # Explicitly sign the main binary
+          codesign --force --options runtime --timestamp \
+            --sign "$SIGNING_IDENTITY" \
+            --entitlements src-tauri/entitlements/Entitlements.plist \
+            "$UNIVERSAL_APP/Contents/MacOS/$MAIN_BIN"
+
+          # Sign the app bundle
+          codesign --force --options runtime --timestamp \
             --sign "$SIGNING_IDENTITY" \
             --entitlements src-tauri/entitlements/Entitlements.plist \
             "$UNIVERSAL_APP"
-          codesign --verify --deep --strict "$UNIVERSAL_APP"
+
+          # Verify
+          codesign --verify --deep --strict --verbose "$UNIVERSAL_APP"
+          codesign -dvv "$UNIVERSAL_APP/Contents/MacOS/$MAIN_BIN" 2>&1 | grep -E "Authority|Timestamp"
 
       - name: Notarize
         env:
@@ -188,7 +208,7 @@ jobs:
           cp -R "$UNIVERSAL_APP" "$STAGING/"
           ln -s /Applications "$STAGING/Applications"
           hdiutil create -volname "$APP_NAME" -srcfolder "$STAGING" -ov -format UDZO "$DMG_PATH"
-          codesign --sign "$SIGNING_IDENTITY" "$DMG_PATH"
+          codesign --sign "$SIGNING_IDENTITY" --timestamp "$DMG_PATH"
           echo "DMG_PATH=$DMG_PATH" >> $GITHUB_ENV
           echo "DMG_NAME=$DMG_NAME" >> $GITHUB_ENV
 
