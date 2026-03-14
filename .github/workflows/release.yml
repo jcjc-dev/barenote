@@ -3,10 +3,6 @@ name: Release (GitHub)
 # PRIMARY release workflow. Triggered by pushing a version tag (e.g. git tag v0.1.0 && git push --tags).
 # Builds a signed + notarized macOS DMG and a signed Windows installer, then creates a draft GitHub Release.
 # Review the draft in GitHub, then publish it manually when ready.
-#
-# After this release is published, you can optionally submit to stores:
-#   - Mac App Store: run the "Release macOS (App Store)" workflow
-#   - Windows Store: run the "Release Windows (Store)" workflow
 
 on:
   push:
