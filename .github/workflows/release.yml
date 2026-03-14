@@ -152,11 +152,27 @@ jobs:
             -o ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8
           ZIP_PATH=$RUNNER_TEMP/$APP_NAME.zip
           ditto -c -k --keepParent "$UNIVERSAL_APP" "$ZIP_PATH"
-          xcrun notarytool submit "$ZIP_PATH" \
+
+          SUBMIT_OUTPUT=$(xcrun notarytool submit "$ZIP_PATH" \
             --key ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8 \
             --key-id "$APPLE_API_KEY_ID" \
             --issuer "$APPLE_API_ISSUER" \
-            --wait --timeout 20m
+            --wait --timeout 20m 2>&1) || true
+          echo "$SUBMIT_OUTPUT"
+
+          SUBMISSION_ID=$(echo "$SUBMIT_OUTPUT" | grep "id:" | head -1 | awk '{print $2}')
+
+          if echo "$SUBMIT_OUTPUT" | grep -q "status: Invalid"; then
+            echo "::error::Notarization failed — fetching log from Apple..."
+            xcrun notarytool log "$SUBMISSION_ID" \
+              --key ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8 \
+              --key-id "$APPLE_API_KEY_ID" \
+              --issuer "$APPLE_API_ISSUER" \
+              developer_log.json 2>&1 || true
+            cat developer_log.json 2>/dev/null || true
+            exit 1
+          fi
+
           xcrun stapler staple "$UNIVERSAL_APP"
           xcrun stapler validate "$UNIVERSAL_APP"
           spctl --assess --type execute --verbose "$UNIVERSAL_APP"
