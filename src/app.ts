@@ -1,12 +1,12 @@
-import { BareNoteEditor, type ChangeCallback } from "./editor";
-import { TabBar } from "./tabs";
-import { ArchivePanel } from "./archive";
-import { MarkdownPreview } from "./preview";
-import { KeybindingManager } from "./keybindings";
-import { SettingsView } from "./settings";
-import { Toast } from "./toast";
-import * as ipc from "./ipc";
-import type { Tab, AppConfig } from "./types";
+import { BareNoteEditor, type ChangeCallback } from './editor';
+import { TabBar } from './tabs';
+import { ArchivePanel } from './archive';
+import { MarkdownPreview } from './preview';
+import { KeybindingManager } from './keybindings';
+import { SettingsView } from './settings';
+import { Toast } from './toast';
+import * as ipc from './ipc';
+import type { Tab, AppConfig } from './types';
 
 export class App {
   private editor: BareNoteEditor | null = null;
@@ -35,15 +35,15 @@ export class App {
 
   async init(): Promise<void> {
     const defaults: AppConfig = {
-      theme: "system",
+      theme: 'system',
       keybindings: {
-        newTab: "CmdOrCtrl+N",
-        closeTab: "CmdOrCtrl+W",
-        find: "CmdOrCtrl+F",
-        replace: "CmdOrCtrl+H",
-        togglePreview: "CmdOrCtrl+P",
-        toggleEditorMode: "CmdOrCtrl+Shift+M",
-        openFile: "CmdOrCtrl+O",
+        newTab: 'CmdOrCtrl+N',
+        closeTab: 'CmdOrCtrl+W',
+        find: 'CmdOrCtrl+F',
+        replace: 'CmdOrCtrl+H',
+        togglePreview: 'CmdOrCtrl+P',
+        toggleEditorMode: 'CmdOrCtrl+Shift+M',
+        openFile: 'CmdOrCtrl+O',
       },
       editor: { font_size: 14, tab_size: 2, word_wrap: true, line_numbers: true },
       snapshot_interval_edits: 50,
@@ -64,8 +64,8 @@ export class App {
 
     // Initialize theme system
     try {
-      const { initThemeSystem } = await import("./theme");
-      const themeMode = (this.config.theme || "system") as string;
+      const { initThemeSystem } = await import('./theme');
+      const themeMode = (this.config.theme || 'system') as string;
       initThemeSystem(themeMode as any);
     } catch {
       // theme module may not be available yet
@@ -77,7 +77,7 @@ export class App {
   }
 
   private setupUI(): void {
-    const app = document.getElementById("app")!;
+    const app = document.getElementById('app')!;
     app.innerHTML = `
       <div class="tab-bar-container" id="tab-bar"></div>
       <div class="main-area">
@@ -87,54 +87,74 @@ export class App {
       </div>
     `;
 
-    this.tabBar = new TabBar(
-      document.getElementById("tab-bar")!,
-      (action, tab) => { this.handleTabAction(action, tab); }
-    );
+    this.tabBar = new TabBar(document.getElementById('tab-bar')!, (action, tab) => {
+      this.handleTabAction(action, tab);
+    });
 
-    const editorContainer = document.getElementById("editor-container")!;
+    const editorContainer = document.getElementById('editor-container')!;
     const onChange: ChangeCallback = (changes) => this.handleEditorChanges(changes);
-    this.editor = new BareNoteEditor(editorContainer, "", onChange);
+    this.editor = new BareNoteEditor(editorContainer, '', onChange);
 
-    this.preview = new MarkdownPreview(document.getElementById("preview-panel")!);
+    this.preview = new MarkdownPreview(document.getElementById('preview-panel')!);
 
-    this.modeIndicator = document.createElement("div");
-    this.modeIndicator.classList.add("mode-indicator");
-    this.modeIndicator.textContent = "Raw";
-    editorContainer.style.position = "relative";
+    this.modeIndicator = document.createElement('div');
+    this.modeIndicator.classList.add('mode-indicator');
+    this.modeIndicator.textContent = 'Raw';
+    editorContainer.style.position = 'relative';
     editorContainer.appendChild(this.modeIndicator);
 
-    this.archive = new ArchivePanel(
-      document.getElementById("archive-panel")!,
-      (tab) => { this.handleTabRestored(tab); }
-    );
+    this.archive = new ArchivePanel(document.getElementById('archive-panel')!, (tab) => {
+      this.handleTabRestored(tab);
+    });
   }
 
   private setupKeybindings(): void {
     if (!this.config) return;
     this.keybindings.loadFromConfig(this.config);
-    this.keybindings.register("newTab", () => { this.createNewTab(); });
-    this.keybindings.register("closeTab", () => { this.closeCurrentTab(); });
-    this.keybindings.register("find", () => this.editor?.openSearch());
-    this.keybindings.register("replace", () => this.editor?.openReplace());
-    this.keybindings.register("togglePreview", () => this.togglePreview());
-    this.keybindings.register("toggleEditorMode", () => this.toggleEditorMode());
-    this.keybindings.register("toggleArchive", () => { this.archive?.toggle(); });
-    this.keybindings.register("saveAs", () => { this.saveAs(); });
-    this.keybindings.register("openFile", () => { this.openFileDialog(); });
-    this.keybindings.register("settings", () => { this.openSettings(); });
-    this.keybindings.register("renameTab", () => { this.tabBar?.renameActiveTab(); });
-    this.keybindings.register("nextTab", () => { this.tabBar?.switchTab(1); });
-    this.keybindings.register("prevTab", () => { this.tabBar?.switchTab(-1); });
-    this.keybindings.register("moveTabLeft", () => { this.tabBar?.moveActiveTab(-1); });
-    this.keybindings.register("moveTabRight", () => { this.tabBar?.moveActiveTab(1); });
+    this.keybindings.register('newTab', () => {
+      this.createNewTab();
+    });
+    this.keybindings.register('closeTab', () => {
+      this.closeCurrentTab();
+    });
+    this.keybindings.register('find', () => this.editor?.openSearch());
+    this.keybindings.register('replace', () => this.editor?.openReplace());
+    this.keybindings.register('togglePreview', () => this.togglePreview());
+    this.keybindings.register('toggleEditorMode', () => this.toggleEditorMode());
+    this.keybindings.register('toggleArchive', () => {
+      this.archive?.toggle();
+    });
+    this.keybindings.register('saveAs', () => {
+      this.saveAs();
+    });
+    this.keybindings.register('openFile', () => {
+      this.openFileDialog();
+    });
+    this.keybindings.register('settings', () => {
+      this.openSettings();
+    });
+    this.keybindings.register('renameTab', () => {
+      this.tabBar?.renameActiveTab();
+    });
+    this.keybindings.register('nextTab', () => {
+      this.tabBar?.switchTab(1);
+    });
+    this.keybindings.register('prevTab', () => {
+      this.tabBar?.switchTab(-1);
+    });
+    this.keybindings.register('moveTabLeft', () => {
+      this.tabBar?.moveActiveTab(-1);
+    });
+    this.keybindings.register('moveTabRight', () => {
+      this.tabBar?.moveActiveTab(1);
+    });
   }
 
   private async loadTabs(): Promise<void> {
     try {
       const tabs = await ipc.listTabs();
       if (tabs.length === 0) {
-        const tab = await ipc.createTab("Untitled");
+        const tab = await ipc.createTab('Untitled');
         this.tabBar?.setTabs([tab], tab.id);
         this.currentTabId = tab.id;
       } else {
@@ -143,8 +163,8 @@ export class App {
         await this.loadTabContent(this.currentTabId);
       }
     } catch (e) {
-      console.error("Failed to load tabs:", e);
-      this.toast.show("Failed to load tabs", "error");
+      console.error('Failed to load tabs:', e);
+      this.toast.show('Failed to load tabs', 'error');
     }
   }
 
@@ -157,7 +177,7 @@ export class App {
       if (mode === 'wysiwyg') {
         this.editor?.hide();
         if (!this.milkdownEditor) {
-          const editorContainer = document.getElementById("editor-container")!;
+          const editorContainer = document.getElementById('editor-container')!;
           editorContainer.classList.add('mode-wysiwyg');
           await this.ensureMilkdownEditor(editorContainer, content);
         } else {
@@ -175,11 +195,11 @@ export class App {
       this.editCount = 0;
       this.resetSnapshotTimer();
     } catch (e) {
-      console.error("Failed to load tab content:", e);
-      this.toast.show("Failed to load note content", "error");
+      console.error('Failed to load tab content:', e);
+      this.toast.show('Failed to load note content', 'error');
       this.milkdownEditor?.hide();
       this.editor?.show();
-      this.editor?.setContent("");
+      this.editor?.setContent('');
     } finally {
       this.isLoadingContent = false;
     }
@@ -206,7 +226,7 @@ export class App {
     }
 
     if (this.preview?.isVisible()) {
-      this.preview.update(this.editor?.getContent() || "");
+      this.preview.update(this.editor?.getContent() || '');
     }
   }
 
@@ -226,9 +246,10 @@ export class App {
     // Flush any pending deltas before snapshotting
     this.flushDeltaBatch();
     const currentMode = this.tabModes.get(this.currentTabId) || 'raw';
-    const content = currentMode === 'wysiwyg'
-      ? (this.milkdownEditor?.getContent() || '')
-      : (this.editor?.getContent() || '');
+    const content =
+      currentMode === 'wysiwyg'
+        ? this.milkdownEditor?.getContent() || ''
+        : this.editor?.getContent() || '';
     if (!content && content !== '') return;
     ipc.updateTabContent(this.currentTabId, content).catch(console.error);
     this.editCount = 0;
@@ -245,18 +266,18 @@ export class App {
 
   private handleTabAction(action: string, tab?: Tab): void {
     switch (action) {
-      case "create":
+      case 'create':
         this.createNewTab();
         break;
-      case "select":
+      case 'select':
         if (tab && tab.id !== this.currentTabId) {
-          if (tab.id === "__settings__") {
+          if (tab.id === '__settings__') {
             this.openSettings();
           } else {
             if (this.isSettingsActive) {
               this.closeSettings();
             }
-            if (this.currentTabId && this.currentTabId !== "__settings__" && this.editCount > 0) {
+            if (this.currentTabId && this.currentTabId !== '__settings__' && this.editCount > 0) {
               this.saveSnapshot();
             }
             this.currentTabId = tab.id;
@@ -264,11 +285,11 @@ export class App {
           }
         }
         break;
-      case "close":
+      case 'close':
         if (tab) {
-          if (tab.id === "__settings__") {
+          if (tab.id === '__settings__') {
             this.closeSettings();
-            ipc.listTabs().then(tabs => {
+            ipc.listTabs().then((tabs) => {
               this.tabBar?.setTabs(tabs);
               if (tabs.length > 0) {
                 this.currentTabId = this.tabBar?.getActiveTabId() || tabs[0].id;
@@ -280,13 +301,13 @@ export class App {
           }
         }
         break;
-      case "archive":
+      case 'archive':
         this.archive?.toggle();
         break;
-      case "reorder":
+      case 'reorder':
         this.persistTabOrder();
         break;
-      case "rename":
+      case 'rename':
         this.tabBar?.renameActiveTab();
         break;
     }
@@ -295,11 +316,11 @@ export class App {
   private async createNewTab(): Promise<void> {
     try {
       if (this.currentTabId && this.editCount > 0) this.saveSnapshot();
-      const tab = await ipc.createTab("Untitled");
+      const tab = await ipc.createTab('Untitled');
       const tabs = await ipc.listTabs();
       this.tabBar?.setTabs(tabs, tab.id);
       this.currentTabId = tab.id;
-      this.editor?.setContent("");
+      this.editor?.setContent('');
       this.editCount = 0;
 
       const defaultMode = this.config?.editor?.default_editor_mode ?? 'raw';
@@ -307,11 +328,11 @@ export class App {
         this.tabModes.set(this.currentTabId, 'wysiwyg');
         this.editor?.hide();
         if (!this.milkdownEditor) {
-          const editorContainer = document.getElementById("editor-container")!;
-          await this.ensureMilkdownEditor(editorContainer, "");
+          const editorContainer = document.getElementById('editor-container')!;
+          await this.ensureMilkdownEditor(editorContainer, '');
         } else {
           this.milkdownEditor.show();
-          await this.milkdownEditor.setContent("");
+          await this.milkdownEditor.setContent('');
         }
         this.updateModeIndicator('wysiwyg');
         await this.milkdownEditor?.focus();
@@ -323,8 +344,8 @@ export class App {
         this.editor?.focus();
       }
     } catch (e) {
-      console.error("Failed to create tab:", e);
-      this.toast.show("Failed to create new tab", "error");
+      console.error('Failed to create tab:', e);
+      this.toast.show('Failed to create new tab', 'error');
     }
   }
 
@@ -333,7 +354,7 @@ export class App {
       if (id === this.currentTabId && this.editCount > 0) this.saveSnapshot();
       // Find adjacent tab before closing (prefer left neighbor, fallback to right)
       const oldTabs = this.tabBar?.getTabs() || [];
-      const closedIdx = oldTabs.findIndex(t => t.id === id);
+      const closedIdx = oldTabs.findIndex((t) => t.id === id);
       let nextTabId: string | null = null;
       if (closedIdx > 0) {
         nextTabId = oldTabs[closedIdx - 1].id;
@@ -344,7 +365,8 @@ export class App {
       await ipc.closeTab(id);
       const tabs = await ipc.listTabs();
       // Use the pre-computed adjacent tab, or fall back to first
-      const activeId = nextTabId && tabs.find(t => t.id === nextTabId) ? nextTabId : (tabs[0]?.id ?? null);
+      const activeId =
+        nextTabId && tabs.find((t) => t.id === nextTabId) ? nextTabId : (tabs[0]?.id ?? null);
       this.tabBar?.setTabs(tabs, activeId ?? undefined);
       this.archive?.refresh();
       if (activeId) {
@@ -355,8 +377,8 @@ export class App {
         await this.createNewTab();
       }
     } catch (e) {
-      console.error("Failed to archive tab:", e);
-      this.toast.show("Failed to close tab", "error");
+      console.error('Failed to archive tab:', e);
+      this.toast.show('Failed to close tab', 'error');
     }
   }
 
@@ -366,12 +388,12 @@ export class App {
 
   private async persistTabOrder(): Promise<void> {
     const tabs = this.tabBar?.getTabs() || [];
-    const order = tabs.map(t => t.id).filter(id => id !== "__settings__");
+    const order = tabs.map((t) => t.id).filter((id) => id !== '__settings__');
     try {
       await ipc.reorderTabs(order);
     } catch (e) {
-      console.error("Failed to persist tab order:", e);
-      this.toast.show("Failed to save tab order", "error");
+      console.error('Failed to persist tab order:', e);
+      this.toast.show('Failed to save tab order', 'error');
     }
   }
 
@@ -383,12 +405,12 @@ export class App {
   }
 
   private async saveAs(): Promise<void> {
-    if (!this.currentTabId || this.currentTabId === "__settings__") return;
+    if (!this.currentTabId || this.currentTabId === '__settings__') return;
     try {
-      const { save } = await import("@tauri-apps/plugin-dialog");
+      const { save } = await import('@tauri-apps/plugin-dialog');
       const path = await save({
-        defaultPath: this.tabBar?.getActiveTabId() ? undefined : "untitled.md",
-        filters: [{ name: "Markdown", extensions: ["md", "txt"] }],
+        defaultPath: this.tabBar?.getActiveTabId() ? undefined : 'untitled.md',
+        filters: [{ name: 'Markdown', extensions: ['md', 'txt'] }],
       });
       if (path) {
         if (this.editCount > 0) this.saveSnapshot();
@@ -397,17 +419,17 @@ export class App {
         this.tabBar?.setTabs(tabs, this.currentTabId!);
       }
     } catch (e) {
-      console.error("Save As failed:", e);
-      this.toast.show("Failed to save file", "error");
+      console.error('Save As failed:', e);
+      this.toast.show('Failed to save file', 'error');
     }
   }
 
   private async openFileDialog(): Promise<void> {
     try {
-      const { open } = await import("@tauri-apps/plugin-dialog");
+      const { open } = await import('@tauri-apps/plugin-dialog');
       const selected = await open({
         multiple: false,
-        filters: [{ name: "All Files", extensions: ["*"] }],
+        filters: [{ name: 'All Files', extensions: ['*'] }],
       });
       if (selected) {
         const tabId = await ipc.openFile(selected);
@@ -415,8 +437,8 @@ export class App {
         await this.switchTab(tabId);
       }
     } catch (e) {
-      console.error("Open file failed:", e);
-      this.toast.show("Failed to open file", "error");
+      console.error('Open file failed:', e);
+      this.toast.show('Failed to open file', 'error');
     }
   }
 
@@ -431,7 +453,7 @@ export class App {
 
     const currentMode = this.tabModes.get(this.currentTabId) || 'raw';
     const newMode = currentMode === 'raw' ? 'wysiwyg' : 'raw';
-    console.log("[App] toggleEditorMode:", currentMode, "->", newMode);
+    console.log('[App] toggleEditorMode:', currentMode, '->', newMode);
 
     // Get content from whichever editor is active — must await milkdown readiness
     let content: string;
@@ -445,7 +467,12 @@ export class App {
     }
     // Normalize to prevent newline accumulation between mode switches
     content = content.replace(/\n{3,}/g, '\n\n').trimEnd();
-    console.log("[App] content to transfer, length:", content.length, "preview:", content.substring(0, 80));
+    console.log(
+      '[App] content to transfer, length:',
+      content.length,
+      'preview:',
+      content.substring(0, 80),
+    );
 
     if (this.currentTabId && this.editCount > 0) {
       this.saveSnapshot();
@@ -455,23 +482,25 @@ export class App {
       this.editor?.hide();
 
       if (!this.milkdownEditor) {
-        const editorContainer = document.getElementById("editor-container")!;
-        console.log("[App] Creating new MilkdownEditor");
+        const editorContainer = document.getElementById('editor-container')!;
+        console.log('[App] Creating new MilkdownEditor');
         await this.ensureMilkdownEditor(editorContainer, content);
-        console.log("[App] MilkdownEditor ready");
+        console.log('[App] MilkdownEditor ready');
       } else {
-        console.log("[App] Reusing existing MilkdownEditor, setting content");
+        console.log('[App] Reusing existing MilkdownEditor, setting content');
         this.milkdownEditor.show();
         await this.milkdownEditor.setContent(content);
       }
 
       // Debug: check DOM state
-      const ec = document.getElementById("editor-container");
+      const ec = document.getElementById('editor-container');
       if (ec) {
-        console.log("[App] editor-container children:", ec.children.length);
+        console.log('[App] editor-container children:', ec.children.length);
         for (let i = 0; i < ec.children.length; i++) {
           const c = ec.children[i] as HTMLElement;
-          console.log(`[App]   child ${i}: <${c.tagName} class="${c.className}"> display="${c.style.display}" offsetHeight=${c.offsetHeight}`);
+          console.log(
+            `[App]   child ${i}: <${c.tagName} class="${c.className}"> display="${c.style.display}" offsetHeight=${c.offsetHeight}`,
+          );
         }
       }
 
@@ -523,9 +552,9 @@ export class App {
   private togglePreview(): void {
     if (!this.preview) return;
     const visible = this.preview.toggle();
-    const editorContainer = document.getElementById("editor-container");
+    const editorContainer = document.getElementById('editor-container');
     if (editorContainer) {
-      editorContainer.classList.toggle("with-preview", visible);
+      editorContainer.classList.toggle('with-preview', visible);
     }
     if (visible && this.editor) {
       this.preview.update(this.editor.getContent());
@@ -535,40 +564,40 @@ export class App {
   private openSettings(): void {
     if (this.isSettingsActive) return;
 
-    if (this.currentTabId && this.currentTabId !== "__settings__" && this.editCount > 0) {
+    if (this.currentTabId && this.currentTabId !== '__settings__' && this.editCount > 0) {
       this.saveSnapshot();
     }
 
     this.isSettingsActive = true;
-    this.currentTabId = "__settings__";
+    this.currentTabId = '__settings__';
 
     const settingsTab = {
-      id: "__settings__",
-      title: "⚙ Settings",
-      created_at: "",
-      updated_at: "",
+      id: '__settings__',
+      title: '⚙ Settings',
+      created_at: '',
+      updated_at: '',
       archived: false,
     } as Tab;
 
-    ipc.listTabs().then(tabs => {
-      if (!tabs.find(t => t.id === "__settings__")) {
+    ipc.listTabs().then((tabs) => {
+      if (!tabs.find((t) => t.id === '__settings__')) {
         tabs.push(settingsTab);
       }
-      this.tabBar?.setTabs(tabs, "__settings__");
+      this.tabBar?.setTabs(tabs, '__settings__');
     });
 
-    const editorContainer = document.getElementById("editor-container")!;
-    editorContainer.style.display = "none";
+    const editorContainer = document.getElementById('editor-container')!;
+    editorContainer.style.display = 'none';
 
-    let settingsContainer = document.getElementById("settings-container");
+    let settingsContainer = document.getElementById('settings-container');
     if (!settingsContainer) {
-      settingsContainer = document.createElement("div");
-      settingsContainer.id = "settings-container";
-      settingsContainer.style.flex = "1";
-      settingsContainer.style.overflow = "auto";
+      settingsContainer = document.createElement('div');
+      settingsContainer.id = 'settings-container';
+      settingsContainer.style.flex = '1';
+      settingsContainer.style.overflow = 'auto';
       editorContainer.parentElement?.insertBefore(settingsContainer, editorContainer);
     }
-    settingsContainer.style.display = "flex";
+    settingsContainer.style.display = 'flex';
 
     this.settingsView = new SettingsView(settingsContainer, this.config!, (newConfig) => {
       this.handleSettingsChange(newConfig);
@@ -581,12 +610,12 @@ export class App {
     this.settingsView?.destroy();
     this.settingsView = null;
 
-    const editorContainer = document.getElementById("editor-container")!;
-    editorContainer.style.display = "flex";
+    const editorContainer = document.getElementById('editor-container')!;
+    editorContainer.style.display = 'flex';
 
-    const settingsContainer = document.getElementById("settings-container");
+    const settingsContainer = document.getElementById('settings-container');
     if (settingsContainer) {
-      settingsContainer.style.display = "none";
+      settingsContainer.style.display = 'none';
     }
   }
 
@@ -594,9 +623,11 @@ export class App {
     this.config = newConfig;
     // Apply theme change immediately
     if (newConfig.theme) {
-      import("./theme").then(({ applyTheme }) => {
-        applyTheme(newConfig.theme as any);
-      }).catch(() => {});
+      import('./theme')
+        .then(({ applyTheme }) => {
+          applyTheme(newConfig.theme as any);
+        })
+        .catch(() => {});
     }
     this.keybindings.loadFromConfig(newConfig);
   }

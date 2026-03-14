@@ -14,7 +14,8 @@
   outline: none;
   color: var(--text-primary);
   background: var(--editor-bg);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-size: 15px;
   line-height: 1.7;
 }
@@ -30,19 +31,56 @@
 }
 
 /* Headings */
-.milkdown-container h1 { font-size: 2em; font-weight: 700; margin: 24px 0 12px; color: var(--preview-heading); border-bottom: 1px solid var(--border); padding-bottom: 8px; }
-.milkdown-container h2 { font-size: 1.5em; font-weight: 600; margin: 20px 0 10px; color: var(--preview-heading); border-bottom: 1px solid var(--border); padding-bottom: 6px; }
-.milkdown-container h3 { font-size: 1.25em; font-weight: 600; margin: 18px 0 8px; color: var(--preview-heading); }
-.milkdown-container h4, .milkdown-container h5, .milkdown-container h6 { font-size: 1.1em; font-weight: 600; margin: 16px 0 8px; color: var(--preview-heading); }
+.milkdown-container h1 {
+  font-size: 2em;
+  font-weight: 700;
+  margin: 24px 0 12px;
+  color: var(--preview-heading);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+.milkdown-container h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin: 20px 0 10px;
+  color: var(--preview-heading);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+.milkdown-container h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin: 18px 0 8px;
+  color: var(--preview-heading);
+}
+.milkdown-container h4,
+.milkdown-container h5,
+.milkdown-container h6 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin: 16px 0 8px;
+  color: var(--preview-heading);
+}
 
 /* Paragraphs and text */
-.milkdown-container p { margin: 8px 0; }
-.milkdown-container strong { font-weight: 700; }
-.milkdown-container em { font-style: italic; }
+.milkdown-container p {
+  margin: 8px 0;
+}
+.milkdown-container strong {
+  font-weight: 700;
+}
+.milkdown-container em {
+  font-style: italic;
+}
 
 /* Links */
-.milkdown-container a { color: var(--accent); text-decoration: none; }
-.milkdown-container a:hover { text-decoration: underline; }
+.milkdown-container a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.milkdown-container a:hover {
+  text-decoration: underline;
+}
 
 /* Code */
 .milkdown-container code {
@@ -50,7 +88,7 @@
   padding: 2px 6px;
   border-radius: 3px;
   font-size: 0.9em;
-  font-family: "SF Mono", "Fira Code", "Cascadia Code", Menlo, Monaco, "Courier New", monospace;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, 'Courier New', monospace;
 }
 
 .milkdown-container pre {
@@ -75,16 +113,23 @@
 }
 
 /* Lists */
-.milkdown-container ul, .milkdown-container ol {
+.milkdown-container ul,
+.milkdown-container ol {
   padding-left: 24px;
   margin: 8px 0;
 }
 
-.milkdown-container li { margin: 4px 0; }
+.milkdown-container li {
+  margin: 4px 0;
+}
 
 /* Task lists (GFM) */
-.milkdown-container li[data-checked="true"]::before { content: "☑ "; }
-.milkdown-container li[data-checked="false"]::before { content: "☐ "; }
+.milkdown-container li[data-checked='true']::before {
+  content: '☑ ';
+}
+.milkdown-container li[data-checked='false']::before {
+  content: '☐ ';
+}
 
 /* Tables (GFM) */
 .milkdown-container table {
@@ -93,7 +138,8 @@
   margin: 12px 0;
 }
 
-.milkdown-container th, .milkdown-container td {
+.milkdown-container th,
+.milkdown-container td {
   border: 1px solid var(--border);
   padding: 8px 12px;
   text-align: left;
@@ -124,7 +170,7 @@
 
 /* Placeholder for empty editor */
 .milkdown-container .ProseMirror p.is-editor-empty:first-child::before {
-  content: "Start writing...";
+  content: 'Start writing...';
   color: var(--text-secondary);
   opacity: 0.5;
   pointer-events: none;

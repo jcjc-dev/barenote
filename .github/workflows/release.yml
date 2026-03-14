@@ -1,0 +1,261 @@
+name: Release (GitHub)
+
+# PRIMARY release workflow. Triggered by pushing a version tag (e.g. git tag v0.1.0 && git push --tags).
+# Builds a signed + notarized macOS DMG and a signed Windows installer, then creates a draft GitHub Release.
+# Review the draft in GitHub, then publish it manually when ready.
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version without v prefix (e.g. 0.1.0)'
+        required: true
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+  APP_NAME: BareNote
+
+jobs:
+  # ── Step 1: Create a draft GitHub Release ──────────────────────────────────
+  prepare:
+    name: Create draft release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      tag: ${{ steps.ver.outputs.tag }}
+    steps:
+      - name: Resolve version and tag
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION="${{ inputs.version }}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create draft GitHub Release
+        run: |
+          gh release create "${{ steps.ver.outputs.tag }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "BareNote ${{ steps.ver.outputs.tag }}" \
+            --draft \
+            --generate-notes \
+          || echo "::notice::Release already exists — uploading assets to existing release."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── Step 2a: Build macOS (universal DMG, signed + notarized) ───────────────
+  build-macos:
+    name: Build macOS (DMG)
+    needs: prepare
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Set version
+        run: |
+          sed -i '' "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+
+      - name: Import Developer ID Application certificate
+        env:
+          APPLE_DEVELOPER_ID_CERTIFICATE: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+        run: |
+          CERT_PATH=$RUNNER_TEMP/developer_id.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
+          echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
+
+          echo -n "$APPLE_DEVELOPER_ID_CERTIFICATE" | base64 --decode -o $CERT_PATH
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security import $CERT_PATH -P "$APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+      - name: Build aarch64
+        run: npx tauri build --target aarch64-apple-darwin --bundles app
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_SIGNING_IDENTITY }}
+
+      - name: Build x86_64
+        run: npx tauri build --target x86_64-apple-darwin --bundles app
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_SIGNING_IDENTITY }}
+
+      - name: Create universal binary
+        run: |
+          UNIVERSAL_DIR="src-tauri/target/universal-apple-darwin/release/bundle/macos"
+          mkdir -p "$UNIVERSAL_DIR"
+          cp -R "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/$APP_NAME.app" \
+            "$UNIVERSAL_DIR/"
+          lipo -create \
+            "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/$APP_NAME.app/Contents/MacOS/$APP_NAME" \
+            "src-tauri/target/x86_64-apple-darwin/release/bundle/macos/$APP_NAME.app/Contents/MacOS/$APP_NAME" \
+            -output "$UNIVERSAL_DIR/$APP_NAME.app/Contents/MacOS/$APP_NAME"
+          echo "UNIVERSAL_APP=$UNIVERSAL_DIR/$APP_NAME.app" >> $GITHUB_ENV
+
+      - name: Re-sign universal binary
+        env:
+          SIGNING_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_SIGNING_IDENTITY }}
+        run: |
+          find "$UNIVERSAL_APP" -type f \( -name "*.dylib" -o -name "*.so" \) -exec \
+            codesign --force --options runtime --sign "$SIGNING_IDENTITY" {} \;
+          find "$UNIVERSAL_APP/Contents/Frameworks" -type d -name "*.framework" -exec \
+            codesign --force --options runtime --sign "$SIGNING_IDENTITY" {} \; 2>/dev/null || true
+          codesign --force --options runtime \
+            --sign "$SIGNING_IDENTITY" \
+            --entitlements src-tauri/entitlements/Entitlements.plist \
+            "$UNIVERSAL_APP"
+          codesign --verify --deep --strict "$UNIVERSAL_APP"
+
+      - name: Notarize
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          mkdir -p ~/private_keys
+          echo -n "$APPLE_API_KEY" | base64 --decode \
+            -o ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8
+          ZIP_PATH=$RUNNER_TEMP/$APP_NAME.zip
+          ditto -c -k --keepParent "$UNIVERSAL_APP" "$ZIP_PATH"
+          xcrun notarytool submit "$ZIP_PATH" \
+            --key ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8 \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER" \
+            --wait --timeout 20m
+          xcrun stapler staple "$UNIVERSAL_APP"
+          xcrun stapler validate "$UNIVERSAL_APP"
+          spctl --assess --type execute --verbose "$UNIVERSAL_APP"
+
+      - name: Create and sign DMG
+        env:
+          SIGNING_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_SIGNING_IDENTITY }}
+        run: |
+          DMG_NAME="${APP_NAME}-${VERSION}-universal.dmg"
+          DMG_PATH="src-tauri/target/$DMG_NAME"
+          STAGING=$RUNNER_TEMP/dmg-staging
+          mkdir -p "$STAGING"
+          cp -R "$UNIVERSAL_APP" "$STAGING/"
+          ln -s /Applications "$STAGING/Applications"
+          hdiutil create -volname "$APP_NAME" -srcfolder "$STAGING" -ov -format UDZO "$DMG_PATH"
+          codesign --sign "$SIGNING_IDENTITY" "$DMG_PATH"
+          echo "DMG_PATH=$DMG_PATH" >> $GITHUB_ENV
+          echo "DMG_NAME=$DMG_NAME" >> $GITHUB_ENV
+
+      - name: Upload DMG to GitHub Release
+        run: |
+          gh release upload "$TAG" "$DMG_PATH" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cleanup
+        if: always()
+        run: |
+          security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
+          rm -f $RUNNER_TEMP/*.p12 $RUNNER_TEMP/*.zip
+          rm -rf ~/private_keys
+
+  # ── Step 2b: Build Windows (NSIS installer, signed) ────────────────────────
+  build-windows:
+    name: Build Windows (NSIS installer)
+    needs: prepare
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Set version
+        shell: pwsh
+        run: |
+          $conf = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
+          $conf.version = "$env:VERSION"
+          $conf | ConvertTo-Json -Depth 10 | Set-Content src-tauri/tauri.conf.json
+
+      - name: Build NSIS installer
+        run: npx tauri build --bundles nsis
+
+      - name: Sign installer
+        if: ${{ secrets.WINDOWS_CERTIFICATE != '' }}
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" `
+            -Recurse | Sort-Object -Descending | Select-Object -First 1
+          Get-ChildItem "src-tauri/target/release/bundle/nsis" -Filter "*.exe" -Recurse | ForEach-Object {
+            & $signtool.FullName sign /fd SHA256 /f $certPath `
+              /p $env:WINDOWS_CERTIFICATE_PASSWORD `
+              /t "http://timestamp.digicert.com" `
+              $_.FullName
+            Write-Host "Signed: $($_.Name)"
+          }
+          Remove-Item $certPath -Force
+
+      - name: Rename and upload installer
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem "src-tauri/target/release/bundle/nsis" -Filter "*.exe" |
+            Select-Object -First 1
+          $newName = "BareNote-${env:VERSION}-windows-x64-setup.exe"
+          $dest = Join-Path $installer.DirectoryName $newName
+          Move-Item $installer.FullName $dest
+          gh release upload "$env:TAG" $dest `
+            --repo "$env:GITHUB_REPOSITORY" `
+            --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,5 +1,5 @@
-import type { AppConfig } from "./types";
-import * as ipc from "./ipc";
+import type { AppConfig } from './types';
+import * as ipc from './ipc';
 
 export type SettingsChangeCallback = (config: AppConfig) => void;
 
@@ -16,10 +16,10 @@ export class SettingsView {
   }
 
   private render(): void {
-    this.container.innerHTML = "";
-    
-    const page = document.createElement("div");
-    page.className = "settings-page";
+    this.container.innerHTML = '';
+
+    const page = document.createElement('div');
+    page.className = 'settings-page';
     page.innerHTML = `
       <h1>Settings</h1>
 
@@ -28,9 +28,9 @@ export class SettingsView {
         <div class="settings-row">
           <label for="setting-theme">Theme</label>
           <select id="setting-theme">
-            <option value="system"${this.config.theme === "system" ? " selected" : ""}>System (follow OS)</option>
-            <option value="dark"${this.config.theme === "dark" ? " selected" : ""}>Dark</option>
-            <option value="light"${this.config.theme === "light" ? " selected" : ""}>Light</option>
+            <option value="system"${this.config.theme === 'system' ? ' selected' : ''}>System (follow OS)</option>
+            <option value="dark"${this.config.theme === 'dark' ? ' selected' : ''}>Dark</option>
+            <option value="light"${this.config.theme === 'light' ? ' selected' : ''}>Light</option>
           </select>
         </div>
       </section>
@@ -48,22 +48,22 @@ export class SettingsView {
         <div class="settings-row">
           <label for="setting-word-wrap">Word Wrap</label>
           <label class="toggle">
-            <input type="checkbox" id="setting-word-wrap"${this.config.editor.word_wrap ? " checked" : ""} />
+            <input type="checkbox" id="setting-word-wrap"${this.config.editor.word_wrap ? ' checked' : ''} />
             <span class="toggle-slider"></span>
           </label>
         </div>
         <div class="settings-row">
           <label for="setting-line-numbers">Line Numbers</label>
           <label class="toggle">
-            <input type="checkbox" id="setting-line-numbers"${this.config.editor.line_numbers ? " checked" : ""} />
+            <input type="checkbox" id="setting-line-numbers"${this.config.editor.line_numbers ? ' checked' : ''} />
             <span class="toggle-slider"></span>
           </label>
         </div>
         <div class="settings-row">
           <label for="setting-default-editor-mode">Default Editor Mode</label>
           <select id="setting-default-editor-mode">
-            <option value="raw"${(this.config.editor.default_editor_mode ?? 'raw') === 'raw' ? " selected" : ""}>Raw</option>
-            <option value="wysiwyg"${this.config.editor.default_editor_mode === 'wysiwyg' ? " selected" : ""}>WYSIWYG</option>
+            <option value="raw"${(this.config.editor.default_editor_mode ?? 'raw') === 'raw' ? ' selected' : ''}>Raw</option>
+            <option value="wysiwyg"${this.config.editor.default_editor_mode === 'wysiwyg' ? ' selected' : ''}>WYSIWYG</option>
           </select>
         </div>
       </section>
@@ -72,12 +72,16 @@ export class SettingsView {
         <h2>Keyboard Shortcuts</h2>
         <p class="settings-hint">Click a shortcut to edit. Use format like "CmdOrCtrl+N" for cross-platform shortcuts.</p>
         <div class="keybindings-list">
-          ${Object.entries(this.config.keybindings).map(([action, shortcut]) => `
+          ${Object.entries(this.config.keybindings)
+            .map(
+              ([action, shortcut]) => `
             <div class="settings-row">
               <label>${this.escapeHtml(this.formatActionName(action))}</label>
               <input type="text" class="keybinding-input" data-action="${this.escapeHtml(action)}" value="${this.escapeHtml(shortcut)}" />
             </div>
-          `).join("")}
+          `,
+            )
+            .join('')}
         </div>
       </section>
 
@@ -97,18 +101,34 @@ export class SettingsView {
     this.container.appendChild(page);
 
     // Wire event listeners
-    this.bindInput("setting-theme", "change", (val) => { this.config.theme = val; });
-    this.bindInput("setting-font-size", "change", (val) => { this.config.editor.font_size = parseInt(val); });
-    this.bindInput("setting-tab-size", "change", (val) => { this.config.editor.tab_size = parseInt(val); });
-    this.bindCheckbox("setting-word-wrap", (val) => { this.config.editor.word_wrap = val; });
-    this.bindCheckbox("setting-line-numbers", (val) => { this.config.editor.line_numbers = val; });
-    this.bindInput("setting-default-editor-mode", "change", (val) => { this.config.editor.default_editor_mode = val as 'raw' | 'wysiwyg'; });
-    this.bindInput("setting-snapshot-edits", "change", (val) => { this.config.snapshot_interval_edits = parseInt(val); });
-    this.bindInput("setting-snapshot-ms", "change", (val) => { this.config.snapshot_interval_ms = parseInt(val); });
+    this.bindInput('setting-theme', 'change', (val) => {
+      this.config.theme = val;
+    });
+    this.bindInput('setting-font-size', 'change', (val) => {
+      this.config.editor.font_size = parseInt(val);
+    });
+    this.bindInput('setting-tab-size', 'change', (val) => {
+      this.config.editor.tab_size = parseInt(val);
+    });
+    this.bindCheckbox('setting-word-wrap', (val) => {
+      this.config.editor.word_wrap = val;
+    });
+    this.bindCheckbox('setting-line-numbers', (val) => {
+      this.config.editor.line_numbers = val;
+    });
+    this.bindInput('setting-default-editor-mode', 'change', (val) => {
+      this.config.editor.default_editor_mode = val as 'raw' | 'wysiwyg';
+    });
+    this.bindInput('setting-snapshot-edits', 'change', (val) => {
+      this.config.snapshot_interval_edits = parseInt(val);
+    });
+    this.bindInput('setting-snapshot-ms', 'change', (val) => {
+      this.config.snapshot_interval_ms = parseInt(val);
+    });
 
     // Keybinding inputs
-    this.container.querySelectorAll(".keybinding-input").forEach((input) => {
-      input.addEventListener("change", (e) => {
+    this.container.querySelectorAll('.keybinding-input').forEach((input) => {
+      input.addEventListener('change', (e) => {
         const el = e.target as HTMLInputElement;
         const action = el.dataset.action!;
         this.config.keybindings[action] = el.value;
@@ -127,7 +147,7 @@ export class SettingsView {
 
   private bindCheckbox(id: string, setter: (val: boolean) => void): void {
     const el = this.container.querySelector(`#${id}`);
-    el?.addEventListener("change", (e) => {
+    el?.addEventListener('change', (e) => {
       setter((e.target as HTMLInputElement).checked);
       this.save();
     });
@@ -135,13 +155,17 @@ export class SettingsView {
 
   private escapeHtml(text: string): string {
     const map: Record<string, string> = {
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;',
     };
     return text.replace(/[&<>"']/g, (c) => map[c]);
   }
 
   private formatActionName(action: string): string {
-    return action.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase());
+    return action.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase());
   }
 
   private async save(): Promise<void> {
@@ -149,11 +173,11 @@ export class SettingsView {
       await ipc.saveConfig(this.config);
       this.onChange(this.config);
     } catch (e) {
-      console.error("Failed to save settings:", e);
+      console.error('Failed to save settings:', e);
     }
   }
 
   destroy(): void {
-    this.container.innerHTML = "";
+    this.container.innerHTML = '';
   }
 }

@@ -12,4 +12,3 @@
 .editor-container:not(.mode-wysiwyg) > .milkdown-container {
   display: none !important;
 }
-

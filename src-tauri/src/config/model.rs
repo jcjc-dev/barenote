@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::Path;
 use std::fs;
 use serde::{Serialize, Deserialize};
 
@@ -93,7 +93,7 @@ impl AppConfig {
     }
 
     /// Load config from disk, merging with defaults for any missing fields
-    pub fn load(app_dir: &PathBuf) -> Self {
+    pub fn load(app_dir: &Path) -> Self {
         let path = app_dir.join("config.json");
         if path.exists() {
             if let Ok(content) = fs::read_to_string(&path) {
@@ -107,12 +107,12 @@ impl AppConfig {
     }
 
     /// Save config to disk
-    pub fn save(&self, app_dir: &PathBuf) -> std::io::Result<()> {
+    pub fn save(&self, app_dir: &Path) -> std::io::Result<()> {
         let mut config = self.clone();
         config.validate();
         let path = app_dir.join("config.json");
         let json = serde_json::to_string_pretty(&config)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            .map_err(std::io::Error::other)?;
         fs::write(&path, json)?;
         Ok(())
     }

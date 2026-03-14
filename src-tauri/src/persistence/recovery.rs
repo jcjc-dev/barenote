@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 use super::snapshot;
 use super::wal;
 
@@ -10,7 +10,7 @@ fn apply_delta(content: &mut String, delta: &wal::Delta) {
 }
 
 /// Recover tab content: read snapshot + replay WAL deltas
-pub fn recover_tab(tab_dir: &PathBuf) -> std::io::Result<String> {
+pub fn recover_tab(tab_dir: &Path) -> std::io::Result<String> {
     // Start with snapshot or empty string
     let mut content = snapshot::read_snapshot(tab_dir)?
         .unwrap_or_default();

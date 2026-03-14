@@ -1,5 +1,5 @@
-import type { Tab } from "./types";
-import * as ipc from "./ipc";
+import type { Tab } from './types';
+import * as ipc from './ipc';
 
 export class ArchivePanel {
   private container: HTMLElement;
@@ -9,17 +9,17 @@ export class ArchivePanel {
   constructor(container: HTMLElement, onRestore: (tab: Tab) => void) {
     this.container = container;
     this.onRestore = onRestore;
-    this.container.classList.add("archive-panel");
-    this.container.style.display = "none";
+    this.container.classList.add('archive-panel');
+    this.container.style.display = 'none';
   }
 
   async toggle(): Promise<void> {
     this.visible = !this.visible;
     if (this.visible) {
       await this.fetchAndRender();
-      this.container.style.display = "flex";
+      this.container.style.display = 'flex';
     } else {
-      this.container.style.display = "none";
+      this.container.style.display = 'none';
     }
   }
 
@@ -33,86 +33,88 @@ export class ArchivePanel {
       const tabs = await ipc.listArchivedTabs();
       this.render(tabs);
     } catch (e) {
-      console.error("Failed to load archived tabs:", e);
+      console.error('Failed to load archived tabs:', e);
       this.render([]);
     }
   }
 
   private render(tabs: Tab[]): void {
-    this.container.innerHTML = "";
+    this.container.innerHTML = '';
 
-    const header = document.createElement("div");
-    header.className = "archive-header";
+    const header = document.createElement('div');
+    header.className = 'archive-header';
 
-    const h3 = document.createElement("h3");
-    h3.textContent = "Archive";
+    const h3 = document.createElement('h3');
+    h3.textContent = 'Archive';
     header.appendChild(h3);
 
-    const closeBtn = document.createElement("button");
-    closeBtn.className = "archive-close";
-    closeBtn.textContent = "×";
-    closeBtn.addEventListener("click", () => { this.toggle(); });
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'archive-close';
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', () => {
+      this.toggle();
+    });
     header.appendChild(closeBtn);
 
     this.container.appendChild(header);
 
     if (tabs.length === 0) {
-      const empty = document.createElement("div");
-      empty.className = "archive-empty";
-      empty.textContent = "No archived tabs";
+      const empty = document.createElement('div');
+      empty.className = 'archive-empty';
+      empty.textContent = 'No archived tabs';
       this.container.appendChild(empty);
       return;
     }
 
-    const list = document.createElement("div");
-    list.className = "archive-list";
+    const list = document.createElement('div');
+    list.className = 'archive-list';
 
     for (const tab of tabs) {
-      const item = document.createElement("div");
-      item.className = "archive-item";
+      const item = document.createElement('div');
+      item.className = 'archive-item';
 
-      const info = document.createElement("div");
-      info.className = "archive-item-info";
+      const info = document.createElement('div');
+      info.className = 'archive-item-info';
 
-      const titleSpan = document.createElement("span");
-      titleSpan.className = "archive-item-title";
+      const titleSpan = document.createElement('span');
+      titleSpan.className = 'archive-item-title';
       titleSpan.textContent = tab.title;
 
-      const dateSpan = document.createElement("span");
-      dateSpan.className = "archive-item-date";
+      const dateSpan = document.createElement('span');
+      dateSpan.className = 'archive-item-date';
       dateSpan.textContent = new Date(tab.updated_at).toLocaleDateString();
 
       info.appendChild(titleSpan);
       info.appendChild(dateSpan);
 
-      const restoreBtn = document.createElement("button");
-      restoreBtn.className = "archive-restore-btn";
-      restoreBtn.textContent = "Restore";
-      restoreBtn.addEventListener("click", async () => {
+      const restoreBtn = document.createElement('button');
+      restoreBtn.className = 'archive-restore-btn';
+      restoreBtn.textContent = 'Restore';
+      restoreBtn.addEventListener('click', async () => {
         try {
           await ipc.restoreTab(tab.id);
           tab.archived = false;
           this.onRestore(tab);
           await this.refresh();
         } catch (e) {
-          console.error("Failed to restore tab:", e);
+          console.error('Failed to restore tab:', e);
         }
       });
 
-      const deleteBtn = document.createElement("button");
-      deleteBtn.className = "archive-delete-btn";
-      deleteBtn.textContent = "Delete";
-      deleteBtn.addEventListener("click", async () => {
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'archive-delete-btn';
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.addEventListener('click', async () => {
         try {
           await ipc.deleteTab(tab.id);
           await this.fetchAndRender();
         } catch (e) {
-          console.error("Failed to delete tab:", e);
+          console.error('Failed to delete tab:', e);
         }
       });
 
-      const actions = document.createElement("div");
-      actions.className = "archive-item-actions";
+      const actions = document.createElement('div');
+      actions.className = 'archive-item-actions';
       actions.appendChild(restoreBtn);
       actions.appendChild(deleteBtn);
 
