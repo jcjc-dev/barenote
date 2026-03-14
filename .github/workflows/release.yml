@@ -41,6 +41,13 @@ jobs:
 
       - name: Create draft GitHub Release
         run: |
+          # Delete any existing draft release for this tag (handles retries)
+          EXISTING=$(gh release view "${{ steps.ver.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft' 2>/dev/null || echo "none")
+          if [ "$EXISTING" = "true" ]; then
+            echo "::notice::Deleting existing draft release for ${{ steps.ver.outputs.tag }}"
+            gh release delete "${{ steps.ver.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --yes 2>/dev/null || true
+          fi
+
           gh release create "${{ steps.ver.outputs.tag }}" \
             --repo "$GITHUB_REPOSITORY" \
             --title "BareNote ${{ steps.ver.outputs.tag }}" \
@@ -177,7 +184,7 @@ jobs:
             --key ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8 \
             --key-id "$APPLE_API_KEY_ID" \
             --issuer "$APPLE_API_ISSUER" \
-            --wait --timeout 20m 2>&1) || true
+            --wait --timeout 45m 2>&1) || true
           echo "$SUBMIT_OUTPUT"
 
           SUBMISSION_ID=$(echo "$SUBMIT_OUTPUT" | grep "id:" | head -1 | awk '{print $2}')
