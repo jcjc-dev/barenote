@@ -48,7 +48,7 @@ jobs:
           EXISTING=$(gh release view "${{ steps.ver.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft' 2>/dev/null || echo "none")
           if [ "$EXISTING" = "true" ]; then
             echo "::notice::Deleting existing draft release for ${{ steps.ver.outputs.tag }}"
-            gh release delete "${{ steps.ver.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag=false 2>/dev/null || true
+            gh release delete "${{ steps.ver.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --yes 2>/dev/null || true
             sleep 5
           fi
 
