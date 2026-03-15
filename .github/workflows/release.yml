@@ -187,48 +187,29 @@ jobs:
             --key ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8 \
             --key-id "$APPLE_API_KEY_ID" \
             --issuer "$APPLE_API_ISSUER" \
-            --output-format json > /tmp/submit.json 2>&1
-          cat /tmp/submit.json
-          SUBMISSION_ID=$(python3 -c "import json; print(json.load(open('/tmp/submit.json'))['id'])")
+            --wait --timeout 30m 2>&1 | tee /tmp/notarize.log || true
+
+          SUBMISSION_ID=$(grep "id:" /tmp/notarize.log | head -1 | awk '{print $2}')
           echo "SUBMISSION_ID=$SUBMISSION_ID" >> $GITHUB_ENV
 
-      - name: Notarize — wait for Apple
-        env:
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-        timeout-minutes: 60
-        run: |
-          KEY_PATH=~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8
-          echo "Waiting for submission $SUBMISSION_ID..."
-
-          while true; do
-            STATUS_OUTPUT=$(xcrun notarytool info "$SUBMISSION_ID" \
-              --key "$KEY_PATH" \
+          if grep -q "status: Accepted" /tmp/notarize.log; then
+            echo "NOTARIZE_STATUS=accepted" >> $GITHUB_ENV
+          elif grep -q "status: Invalid" /tmp/notarize.log; then
+            echo "::error::Notarization rejected by Apple"
+            xcrun notarytool log "$SUBMISSION_ID" \
+              --key ~/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8 \
               --key-id "$APPLE_API_KEY_ID" \
-              --issuer "$APPLE_API_ISSUER" 2>&1) || true
-            echo "$STATUS_OUTPUT"
-
-            if echo "$STATUS_OUTPUT" | grep -q "status: Accepted"; then
-              echo "Notarization accepted!"
-              break
-            fi
-            if echo "$STATUS_OUTPUT" | grep -q "status: Invalid"; then
-              echo "::error::Notarization rejected — fetching log..."
-              xcrun notarytool log "$SUBMISSION_ID" \
-                --key "$KEY_PATH" \
-                --key-id "$APPLE_API_KEY_ID" \
-                --issuer "$APPLE_API_ISSUER" \
-                developer_log.json 2>&1 || true
-              cat developer_log.json 2>/dev/null || true
-              exit 1
-            fi
-
-            echo "Still processing, waiting 30s..."
-            sleep 30
-          done
+              --issuer "$APPLE_API_ISSUER" \
+              developer_log.json 2>&1 || true
+            cat developer_log.json 2>/dev/null || true
+            exit 1
+          else
+            echo "::warning::Notarization still in progress after 30 min — uploading DMG without staple"
+            echo "NOTARIZE_STATUS=pending" >> $GITHUB_ENV
+          fi
 
       - name: Notarize — staple
+        if: env.NOTARIZE_STATUS == 'accepted'
         run: |
           xcrun stapler staple "$UNIVERSAL_APP"
           xcrun stapler validate "$UNIVERSAL_APP"
