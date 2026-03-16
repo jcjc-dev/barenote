@@ -1,8 +1,7 @@
 name: Release (GitHub)
 
 # PRIMARY release workflow. Triggered by pushing a version tag (e.g. git tag v0.1.0 && git push --tags).
-# Builds a signed + notarized macOS DMG and a signed Windows installer, then creates a draft GitHub Release.
-# Review the draft in GitHub, then publish it manually when ready.
+# Builds a signed + notarized macOS DMG and a signed Windows installer, then publishes a GitHub Release.
 
 on:
   push:
@@ -313,5 +312,19 @@ jobs:
           gh release upload "$env:TAG" $dest `
             --repo "$env:GITHUB_REPOSITORY" `
             --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── Step 3: Publish the release ────────────────────────────────────────────
+  publish:
+    name: Publish release
+    needs: [prepare, build-macos, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish GitHub Release
+        run: |
+          gh release edit "${{ needs.prepare.outputs.tag }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft=false
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
